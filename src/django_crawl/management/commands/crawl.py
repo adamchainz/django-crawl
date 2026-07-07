@@ -1,0 +1,428 @@
+from __future__ import annotations
+
+import logging
+import sys
+from argparse import ArgumentParser, ArgumentTypeError
+from collections import deque
+from collections.abc import Iterator
+from contextlib import (
+    ExitStack,
+    contextmanager,
+    nullcontext,
+    redirect_stderr,
+    redirect_stdout,
+)
+from dataclasses import dataclass
+from types import TracebackType
+from typing import Any
+from urllib.parse import urldefrag, urljoin, urlsplit, urlunsplit
+
+from django.conf import settings
+from django.contrib.auth import get_user_model
+from django.core.management.base import CommandError
+from django.test import Client, override_settings
+from django_rich.management import RichCommand
+from justhtml import JustHTML
+from rich.console import Console
+from rich.traceback import Traceback
+
+DEFAULT_DEPTH = 5
+DEFAULT_MAX_PAGES = 1000
+TESTSERVER = "testserver"
+
+
+@dataclass(frozen=True)
+class QueueItem:
+    url: str
+    depth: int
+
+
+@dataclass
+class CrawlError:
+    url: str
+    message: str
+    exc_info: tuple[type[BaseException], BaseException, TracebackType] | None = None
+
+
+@dataclass
+class CrawlResult:
+    count: int
+    errors: list[CrawlError]
+
+
+class SuppressDjangoRequestLogs(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        record.exc_info = None
+        record.exc_text = None
+        return False
+
+
+def non_negative_int(value: str) -> int:
+    try:
+        number = int(value)
+    except ValueError:
+        raise ArgumentTypeError("must be an integer") from None
+    if number < 0:
+        raise ArgumentTypeError("must be greater than or equal to 0")
+    return number
+
+
+def positive_int(value: str) -> int:
+    try:
+        number = int(value)
+    except ValueError:
+        raise ArgumentTypeError("must be an integer") from None
+    if number <= 0:
+        raise ArgumentTypeError("must be greater than 0")
+    return number
+
+
+def normalize_url(url: str) -> str | None:
+    url, _fragment = urldefrag(url)
+    parts = urlsplit(url)
+    if parts.scheme or parts.netloc:
+        return None
+    path = parts.path or "/"
+    if not path.startswith("/"):
+        path = f"/{path}"
+    return urlunsplit(("", "", path, parts.query, ""))
+
+
+def response_url(response: Any, fallback: str) -> str:
+    request = getattr(response, "wsgi_request", None)
+    if request is not None:
+        return request.get_full_path()
+    return fallback
+
+
+def is_html(response: Any) -> bool:
+    return "text/html" in response.headers.get("Content-Type", "")
+
+
+def pluralize_url(count: int) -> str:
+    if count == 1:
+        return "1 URL"
+    return f"{count} URLs"
+
+
+def pluralize_error(count: int) -> str:
+    if count == 1:
+        return "1 error"
+    return f"{count} errors"
+
+
+@contextmanager
+def paused_status(status: Any) -> Iterator[None]:
+    stop = getattr(status, "stop", None)
+    start = getattr(status, "start", None)
+    if stop is not None:
+        stop()
+    try:
+        yield
+    finally:
+        if start is not None:
+            start()
+
+
+def anchor_href(anchor: Any) -> str | None:
+    attrs = getattr(anchor, "attrs", None)
+    if attrs is not None:
+        href = attrs.get("href")
+        return href if isinstance(href, str) else None
+    attributes = getattr(anchor, "attributes", None)
+    if attributes is not None:
+        href = attributes.get("href")
+        return href if isinstance(href, str) else None
+    get = getattr(anchor, "get", None)
+    if get is not None:
+        href = get("href")
+        return href if isinstance(href, str) else None
+    return None
+
+
+class RawOutput:
+    def __init__(self, output: Any) -> None:
+        self.output = output
+
+    def write(self, text: str) -> None:
+        self.output.write(text, ending="")
+
+    def flush(self) -> None:
+        self.output.flush()
+
+
+class Command(RichCommand):
+    help = "Crawl the Django site with the test client and report broken pages."
+
+    def add_arguments(self, parser: ArgumentParser) -> None:
+        parser.add_argument(
+            "urls",
+            nargs="*",
+            help=("URL paths to start crawling from. Defaults to /."),
+        )
+        parser.add_argument(
+            "--depth",
+            type=non_negative_int,
+            default=DEFAULT_DEPTH,
+            help=f"Maximum link depth to crawl. Defaults to {DEFAULT_DEPTH}.",
+        )
+        parser.add_argument(
+            "--max-pages",
+            type=positive_int,
+            default=DEFAULT_MAX_PAGES,
+            help=f"Maximum number of pages to request. Defaults to {DEFAULT_MAX_PAGES}.",
+        )
+        parser.add_argument(
+            "--login-superuser",
+            action="store_true",
+            help="Log in as the first active superuser before crawling.",
+        )
+        parser.add_argument(
+            "--login-user",
+            metavar="USERNAME",
+            help="Log in as the user with this username before crawling.",
+        )
+        parser.add_argument(
+            "--setup-code",
+            action="append",
+            default=[],
+            metavar="CODE",
+            help="Python code to run before crawling with client in locals.",
+        )
+        parser.add_argument(
+            "-c",
+            "--command",
+            dest="code",
+            metavar="CODE",
+            help="Python code to run for every response with response in locals.",
+        )
+
+    def handle(self, *args: Any, **options: Any) -> None:
+        start_urls = self.start_urls(options["urls"])
+        depth: int = options["depth"]
+        max_pages: int = options["max_pages"]
+        code: str | None = options["code"]
+
+        client = Client(HTTP_HOST=TESTSERVER)
+        self.configure_client(client, options)
+
+        django_request_logger = logging.getLogger("django.request")
+        log_filter = SuppressDjangoRequestLogs()
+        with ExitStack() as stack:
+            if "*" not in settings.ALLOWED_HOSTS:
+                allowed_hosts = [*settings.ALLOWED_HOSTS]
+                for host in (TESTSERVER, client.defaults.get("HTTP_HOST")):
+                    if host is not None and host not in allowed_hosts:
+                        allowed_hosts.append(host)
+                stack.enter_context(override_settings(ALLOWED_HOSTS=allowed_hosts))
+            django_request_logger.addFilter(log_filter)
+            stack.callback(django_request_logger.removeFilter, log_filter)
+            status = (
+                self.console.status("Crawling site…")
+                if self.console.is_terminal
+                else nullcontext()
+            )
+            with status:
+                result = self.crawl(client, start_urls, depth, max_pages, code, status)
+
+        if result.errors:
+            self.console.print(f"Found {pluralize_error(len(result.errors))}.")
+            self.console.print(f"Crawled {pluralize_url(result.count)}.")
+            raise SystemExit(1)
+        self.console.print(f"Crawled {pluralize_url(result.count)}.")
+
+    def start_urls(self, urls: list[str]) -> list[str]:
+        if urls:
+            return self.normalize_start_urls(urls)
+        return ["/"]
+
+    def normalize_start_urls(self, urls: list[str]) -> list[str]:
+        normalized = []
+        for url in urls:
+            normalized_url = normalize_url(url)
+            if normalized_url is None:
+                raise CommandError(f"Start URL must be an internal path: {url!r}.")
+            normalized.append(normalized_url)
+        return normalized
+
+    def configure_client(self, client: Client, options: dict[str, Any]) -> None:
+        namespace = self.setup_namespace(client)
+
+        for code in options["setup_code"]:
+            exec(code, namespace, namespace)
+
+        if options["login_superuser"]:
+            self.login_superuser(client)
+
+        login_user = options["login_user"]
+        if login_user is not None:
+            self.login_user(client, login_user)
+
+    def setup_namespace(self, client: Client) -> dict[str, Any]:
+        namespace = {
+            "client": client,
+            "settings": settings,
+            "get_user_model": get_user_model,
+        }
+        try:
+            namespace["User"] = get_user_model()
+        except Exception:
+            pass
+        return namespace
+
+    def login_superuser(self, client: Client) -> None:
+        User = get_user_model()
+        username_field = User.USERNAME_FIELD
+        user = (
+            User._default_manager.filter(is_active=True, is_superuser=True)
+            .order_by(username_field)
+            .first()
+        )
+        if user is None:
+            raise CommandError("No active superuser found.")
+        client.force_login(user)
+
+    def login_user(self, client: Client, username: str) -> None:
+        User = get_user_model()
+        user = User._default_manager.get(**{User.USERNAME_FIELD: username})
+        client.force_login(user)
+
+    def crawl(
+        self,
+        client: Client,
+        start_urls: list[str],
+        depth: int,
+        max_pages: int,
+        code: str | None,
+        status: Any = None,
+    ) -> CrawlResult:
+        queue = deque(QueueItem(url, 0) for url in start_urls)
+        seen: set[str] = set()
+        errors: list[CrawlError] = []
+        code_namespace: dict[str, Any] = {}
+
+        while queue and len(seen) < max_pages:
+            item = queue.popleft()
+            if item.url in seen:
+                continue
+            seen.add(item.url)
+
+            try:
+                with paused_status(status):
+                    response = client.get(item.url, follow=True)
+            except Exception:
+                error = CrawlError(
+                    url=item.url,
+                    message="HTTP 500 Internal Server Error",
+                    exc_info=sys.exc_info(),
+                )
+                errors.append(error)
+                with paused_status(status):
+                    self.report_error(self.console, error)
+                continue
+
+            final_url = response_url(response, item.url)
+            display_url = self.display_url(item.url, final_url)
+            if response.status_code >= 400:
+                error = self.status_error(display_url, response)
+                errors.append(error)
+                with paused_status(status):
+                    self.report_error(self.console, error)
+
+            if code is not None:
+                with paused_status(status):
+                    error = self.run_response_code(
+                        code, code_namespace, response, display_url
+                    )
+                if error is not None:
+                    errors.append(error)
+                    with paused_status(status):
+                        self.report_error(self.console, error)
+
+            if item.depth >= depth or not is_html(response):
+                continue
+
+            for href in self.extract_links(response):
+                linked_url = normalize_url(urljoin(final_url, href))
+                if linked_url is not None and linked_url not in seen:
+                    queue.append(QueueItem(linked_url, item.depth + 1))
+
+        return CrawlResult(count=len(seen), errors=errors)
+
+    def display_url(self, requested_url: str, final_url: str) -> str:
+        if requested_url == final_url:
+            return requested_url
+        return f"{requested_url} -> {final_url}"
+
+    def status_error(self, url: str, response: Any) -> CrawlError:
+        return CrawlError(
+            url=url,
+            message=f"HTTP {response.status_code} {response.reason_phrase}",
+            exc_info=getattr(response, "exc_info", None),
+        )
+
+    def run_response_code(
+        self,
+        code: str,
+        namespace: dict[str, Any],
+        response: Any,
+        url: str,
+    ) -> CrawlError | None:
+        namespace["response"] = response
+        try:
+            with (
+                redirect_stdout(RawOutput(self.stdout)),
+                redirect_stderr(RawOutput(self.stderr)),
+            ):
+                exec(code, namespace, namespace)
+        except Exception:
+            return CrawlError(
+                url=url,
+                message="Response code raised an exception.",
+                exc_info=sys.exc_info(),
+            )
+        return None
+
+    def report_error(self, console: Console, error: CrawlError) -> None:
+        if error.exc_info is None:
+            console.print(f"[bold red]URL:[/] {error.url}")
+            console.print(f"[red]{error.message}[/]")
+            return
+
+        type_, value, traceback = error.exc_info
+        notes = [f"URL: {error.url}", error.message]
+        if hasattr(value, "add_note"):
+            for note in notes:
+                if note not in getattr(value, "__notes__", ()):
+                    value.add_note(note)
+            console.print(
+                Traceback.from_exception(
+                    type_,
+                    value,
+                    traceback,
+                    show_locals=False,
+                    suppress=["django"],
+                )
+            )
+        else:  # pragma: no cover
+            console.print(
+                Traceback.from_exception(
+                    type_,
+                    value,
+                    traceback,
+                    show_locals=False,
+                    suppress=["django"],
+                )
+            )
+            for note in notes:
+                console.print(note)
+
+    def extract_links(self, response: Any) -> list[str]:
+        content = response.content.decode(response.charset or "utf-8", errors="replace")
+        document = JustHTML(content, sanitize=False)
+        links = []
+        for anchor in document.query("a[href]"):
+            href = anchor_href(anchor)
+            if href is not None:
+                links.append(href)
+        return links

@@ -1,0 +1,145 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = [
+  "setuptools>=77",
+]
+
+[project]
+name = "django-crawl"
+version = "0"
+description = "Crawl Django sites with the test client and report broken pages."
+readme = "README.rst"
+keywords = [
+  "Django",
+]
+license = "MIT"
+license-files = [ "LICENSE" ]
+authors = [
+  { name = "Adam Johnson", email = "me@adamj.eu" },
+]
+requires-python = ">=3.10"
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Framework :: Django :: 5.1",
+  "Framework :: Django :: 5.2",
+  "Framework :: Django :: 6.0",
+  "Framework :: Django :: 6.1",
+  "Intended Audience :: Developers",
+  "Natural Language :: English",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Typing :: Typed",
+]
+dependencies = [
+  "django-rich>=2",
+  "django>=5.1",
+  "justhtml>=3",
+  "rich>=14.1",
+]
+urls.Changelog = "https://github.com/adamchainz/django-crawl/blob/main/CHANGELOG.rst"
+urls.Funding = "https://adamj.eu/books/"
+urls.Repository = "https://github.com/adamchainz/django-crawl"
+
+[dependency-groups]
+test = [
+  "coverage[toml]",
+  "pytest>=9",
+  "pytest-django",
+  "pytest-randomly",
+]
+django51 = [ "django>=5.1a1,<5.2; python_version>='3.10'" ]
+django52 = [ "django>=5.2a1,<6; python_version>='3.10'" ]
+django60 = [ "django>=6a1,<6.1; python_version>='3.12'" ]
+django61 = [ "django>=6.1a1,<6.2; python_version>='3.12'" ]
+
+[tool.uv]
+conflicts = [
+  [
+    { group = "django51" },
+    { group = "django52" },
+    { group = "django60" },
+    { group = "django61" },
+  ],
+]
+
+[tool.ruff]
+lint.select = [
+  # flake8-bugbear
+  "B",
+  # flake8-comprehensions
+  "C4",
+  # pycodestyle
+  "E",
+  # Pyflakes errors
+  "F",
+  # isort
+  "I",
+  # flake8-simplify
+  "SIM",
+  # flake8-tidy-imports
+  "TID",
+  # pyupgrade
+  "UP",
+  # Pyflakes warnings
+  "W",
+]
+lint.ignore = [
+  # flake8-bugbear opinionated rules
+  "B9",
+  # line-too-long
+  "E501",
+  # suppressible-exception
+  "SIM105",
+  # if-else-block-instead-of-if-exp
+  "SIM108",
+]
+lint.extend-safe-fixes = [
+  # non-pep585-annotation
+  "UP006",
+]
+lint.isort.required-imports = [ "from __future__ import annotations" ]
+
+[tool.pyproject-fmt]
+max_supported_python = "3.14"
+
+[tool.mypy]
+mypy_path = "src/"
+namespace_packages = false
+warn_unreachable = true
+enable_error_code = [
+  "ignore-without-code",
+  "redundant-expr",
+  "truthy-bool",
+]
+strict = true
+overrides = [ { module = "tests.*", allow_untyped_defs = true } ]
+
+[tool.pytest]
+django_find_project = false
+DJANGO_SETTINGS_MODULE = "tests.settings"
+strict = true
+
+[tool.coverage]
+run.branch = true
+run.data_file = ".coverage/cov"
+run.parallel = true
+run.source = [
+  "django_crawl",
+  "tests",
+]
+paths.source = [
+  "src",
+  ".tox/**/site-packages",
+]
+report.show_missing = true
+report.skip_covered = true
+report.skip_empty = true
+
+[tool.rstcheck]
+report_level = "ERROR"
