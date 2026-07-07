@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from io import StringIO
 from unittest.mock import patch
 
-from django.core.management.base import CommandError
 from django.test import Client, TestCase, override_settings
 from rich.console import Console
 
@@ -316,27 +315,47 @@ class LoginTests(TestCase):
                 "get_user_model": get_user_model,
             }
 
-    def test_configure_client_runs_login_options(self):
+    def test_configure_client_logs_in_default_superuser(self):
         command = Command()
         client = Client()
-        calls = []
         options = {
             "setup_code": [],
-            "login_superuser": True,
-            "login_user": "test@example.com",
+            "login": None,
+            "no_login": False,
         }
 
-        with (
-            patch.object(
-                command, "login_superuser", lambda client: calls.append("superuser")
-            ),
-            patch.object(
-                command, "login_user", lambda client, username: calls.append(username)
-            ),
-        ):
+        with patch.object(command, "login_superuser") as login_superuser:
             command.configure_client(client, options)
 
-        assert calls == ["superuser", "test@example.com"]
+        login_superuser.assert_called_once_with(client)
+
+    def test_configure_client_skips_login_with_no_login(self):
+        command = Command()
+        client = Client()
+        options = {
+            "setup_code": [],
+            "login": None,
+            "no_login": True,
+        }
+
+        with patch.object(command, "login_superuser") as login_superuser:
+            command.configure_client(client, options)
+
+        login_superuser.assert_not_called()
+
+    def test_configure_client_logs_in_explicit_user(self):
+        command = Command()
+        client = Client()
+        options = {
+            "setup_code": [],
+            "login": "test@example.com",
+            "no_login": False,
+        }
+
+        with patch.object(command, "login_user") as login_user:
+            command.configure_client(client, options)
+
+        login_user.assert_called_once_with(client, "test@example.com")
 
     def test_login_superuser(self):
         command = Command()
@@ -368,8 +387,10 @@ class LoginTests(TestCase):
 
         assert force_login_calls == [user]
 
-    def test_login_superuser_errors_without_user(self):
+    def test_login_superuser_ignores_missing_user(self):
         command = Command()
+        client = Client()
+        force_login_calls = []
 
         class QuerySet:
             def filter(self, **kwargs):
@@ -385,11 +406,28 @@ class LoginTests(TestCase):
             USERNAME_FIELD = "username"
             _default_manager = QuerySet()
 
-        with patch.object(crawl, "get_user_model", return_value=User):
-            with self.assertRaisesRegex(CommandError, "No active superuser found"):
-                command.login_superuser(Client())
+        with (
+            patch.object(crawl, "get_user_model", return_value=User),
+            patch.object(client, "force_login", force_login_calls.append),
+        ):
+            command.login_superuser(client)
 
-    def test_login_user(self):
+        assert force_login_calls == []
+
+    def test_login_superuser_ignores_missing_auth(self):
+        command = Command()
+        client = Client()
+        force_login_calls = []
+
+        with (
+            patch.object(crawl, "get_user_model", side_effect=LookupError),
+            patch.object(client, "force_login", force_login_calls.append),
+        ):
+            command.login_superuser(client)
+
+        assert force_login_calls == []
+
+    def test_login_user_by_username(self):
         command = Command()
         client = Client()
         user = object()
@@ -397,11 +435,102 @@ class LoginTests(TestCase):
 
         class Manager:
             def get(self, **kwargs):
+                assert kwargs == {"username": "alice"}
+                return user
+
+        class User:
+            USERNAME_FIELD = "username"
+            _default_manager = Manager()
+
+        with (
+            patch.object(crawl, "get_user_model", return_value=User),
+            patch.object(client, "force_login", force_login_calls.append),
+        ):
+            command.login_user(client, "alice")
+
+        assert force_login_calls == [user]
+
+    def test_login_user_missing_user_errors(self):
+        command = Command()
+
+        class Manager:
+            def get(self, **kwargs):
+                raise crawl.ObjectDoesNotExist
+
+        class User:
+            USERNAME_FIELD = "email"
+            _default_manager = Manager()
+
+        with patch.object(crawl, "get_user_model", return_value=User):
+            with self.assertRaisesRegex(
+                crawl.CommandError, "User 'missing@example.com' does not exist"
+            ):
+                command.login_user(Client(), "missing@example.com")
+
+    def test_login_user_missing_email_field_errors(self):
+        command = Command()
+
+        class Meta:
+            def get_field(self, name):
+                raise crawl.FieldDoesNotExist
+
+        class Manager:
+            def get(self, **kwargs):
+                raise crawl.ObjectDoesNotExist
+
+        class User:
+            USERNAME_FIELD = "username"
+            _meta = Meta()
+            _default_manager = Manager()
+
+        with patch.object(crawl, "get_user_model", return_value=User):
+            with self.assertRaisesRegex(
+                crawl.CommandError, "User 'missing@example.com' does not exist"
+            ):
+                command.login_user(Client(), "missing@example.com")
+
+    def test_login_user_missing_email_user_errors(self):
+        command = Command()
+
+        class Meta:
+            def get_field(self, name):
+                assert name == "email"
+
+        class Manager:
+            def get(self, **kwargs):
+                raise crawl.ObjectDoesNotExist
+
+        class User:
+            USERNAME_FIELD = "username"
+            _meta = Meta()
+            _default_manager = Manager()
+
+        with patch.object(crawl, "get_user_model", return_value=User):
+            with self.assertRaisesRegex(
+                crawl.CommandError, "User 'missing@example.com' does not exist"
+            ):
+                command.login_user(Client(), "missing@example.com")
+
+    def test_login_user_by_email(self):
+        command = Command()
+        client = Client()
+        user = object()
+        force_login_calls = []
+
+        class Meta:
+            def get_field(self, name):
+                assert name == "email"
+
+        class Manager:
+            def get(self, **kwargs):
+                if kwargs == {"username": "test@example.com"}:
+                    raise crawl.ObjectDoesNotExist
                 assert kwargs == {"email": "test@example.com"}
                 return user
 
         class User:
-            USERNAME_FIELD = "email"
+            USERNAME_FIELD = "username"
+            _meta = Meta()
             _default_manager = Manager()
 
         with (

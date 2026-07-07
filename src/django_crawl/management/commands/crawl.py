@@ -19,6 +19,7 @@ from urllib.parse import urldefrag, urljoin, urlsplit, urlunsplit
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.exceptions import FieldDoesNotExist, ObjectDoesNotExist
 from django.core.management.base import CommandError
 from django.test import Client, override_settings
 from django_rich.management import RichCommand
@@ -173,14 +174,14 @@ class Command(RichCommand):
             help=f"Maximum number of pages to request. Defaults to {DEFAULT_MAX_PAGES}.",
         )
         parser.add_argument(
-            "--login-superuser",
+            "--no-login",
             action="store_true",
-            help="Log in as the first active superuser before crawling.",
+            help="Do not automatically log in before crawling.",
         )
         parser.add_argument(
-            "--login-user",
-            metavar="USERNAME",
-            help="Log in as the user with this username before crawling.",
+            "--login",
+            metavar="USERNAME_OR_EMAIL",
+            help="Log in as the user with this username or email address.",
         )
         parser.add_argument(
             "--setup-code",
@@ -251,12 +252,11 @@ class Command(RichCommand):
         for code in options["setup_code"]:
             exec(code, namespace, namespace)
 
-        if options["login_superuser"]:
+        login = options["login"]
+        if login is not None:
+            self.login_user(client, login)
+        elif not options["no_login"]:
             self.login_superuser(client)
-
-        login_user = options["login_user"]
-        if login_user is not None:
-            self.login_user(client, login_user)
 
     def setup_namespace(self, client: Client) -> dict[str, Any]:
         namespace = {
@@ -271,21 +271,38 @@ class Command(RichCommand):
         return namespace
 
     def login_superuser(self, client: Client) -> None:
-        User = get_user_model()
-        username_field = User.USERNAME_FIELD
+        try:
+            User = get_user_model()
+        except Exception:
+            return
         user = (
             User._default_manager.filter(is_active=True, is_superuser=True)
-            .order_by(username_field)
+            .order_by(User.USERNAME_FIELD)
             .first()
         )
-        if user is None:
-            raise CommandError("No active superuser found.")
+        if user is not None:
+            client.force_login(user)
+
+    def login_user(self, client: Client, username_or_email: str) -> None:
+        User = get_user_model()
+        query = {User.USERNAME_FIELD: username_or_email}
+        try:
+            user = User._default_manager.get(**query)
+        except ObjectDoesNotExist:
+            user = self.get_user_by_email(User, username_or_email)
         client.force_login(user)
 
-    def login_user(self, client: Client, username: str) -> None:
-        User = get_user_model()
-        user = User._default_manager.get(**{User.USERNAME_FIELD: username})
-        client.force_login(user)
+    def get_user_by_email(self, User: Any, email: str) -> Any:
+        if User.USERNAME_FIELD == "email":
+            raise CommandError(f"User {email!r} does not exist.")
+        try:
+            User._meta.get_field("email")
+        except FieldDoesNotExist:
+            raise CommandError(f"User {email!r} does not exist.") from None
+        try:
+            return User._default_manager.get(email=email)
+        except ObjectDoesNotExist:
+            raise CommandError(f"User {email!r} does not exist.") from None
 
     def crawl(
         self,

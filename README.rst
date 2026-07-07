@@ -95,17 +95,19 @@ If the code raises an exception, the command reports the URL and traceback, then
 Setup
 =====
 
-Use ``--login-superuser`` to log in as the first active superuser:
+By default, if ``django.contrib.auth`` is installed, django-crawl logs in as the first active superuser, ordered by the user model’s username field.
+Disable this with ``--no-login``:
 
 .. code-block:: console
 
-    $ ./manage.py crawl /admin/ --login-superuser
+    $ ./manage.py crawl --no-login
 
-Use ``--login-user`` to log in as a specific user by the model’s username field:
+Use ``--login`` to log in as a specific user by username or email address:
 
 .. code-block:: console
 
-    $ ./manage.py crawl --login-user alice
+    $ ./manage.py crawl --login alice
+    $ ./manage.py crawl --login alice@example.com
 
 Use ``--setup-code`` for small snippets that configure the client before crawling:
 
