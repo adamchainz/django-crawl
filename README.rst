@@ -75,6 +75,15 @@ Use ``--depth`` to control how many links are followed from each start URL:
 
     $ ./manage.py crawl --depth 2
 
+By default, django-crawl crawls up to 10 query string variants per path.
+This avoids it getting stuck in large spaces of sorting and filtering links, such as Django admin changelists.
+Use ``--max-query-variants`` to change this limit, or ``unlimited`` to disable it:
+
+.. code-block:: console
+
+    $ ./manage.py crawl --max-query-variants 20
+    $ ./manage.py crawl --max-query-variants unlimited
+
 The command follows redirects.
 It reports HTTP 400, 404, 500, and other 4xx/5xx responses, including Django exception tracebacks when available.
 It keeps crawling after errors and exits non-zero after reporting them all.
@@ -83,7 +92,8 @@ Response checks
 ===============
 
 Pass ``-c`` or ``--command`` to run Python code for every response.
-The response is available as ``response`` in locals, like ``manage.py shell -c``:
+The response is available as ``response`` in locals, like ``manage.py shell -c``.
+For example, to audit all URLs’ ``content-security-policy`` headers:
 
 .. code-block:: console
 
@@ -109,7 +119,8 @@ Use ``--login`` to log in as a specific user by username or email address:
     $ ./manage.py crawl --login alice
     $ ./manage.py crawl --login alice@example.com
 
-Use ``--setup-code`` for small snippets that configure the client before crawling:
+Use ``--setup-code`` for small snippets that configure the client before crawling.
+For example, to set the ``x-site`` header:
 
 .. code-block:: console
 

@@ -21,6 +21,16 @@ def ok(request: HttpRequest) -> HttpResponse:
     return HttpResponse('<a href="/deep/">deep</a>')
 
 
+def query_variants(request: HttpRequest) -> HttpResponse:
+    return HttpResponse(
+        """
+        <a href="/query-variants/?a=1">one</a>
+        <a href="/query-variants/?a=2">two</a>
+        <a href="/query-variants/?a=3">three</a>
+        """
+    )
+
+
 def deep(request: HttpRequest) -> HttpResponse:
     return HttpResponse("deep")
 
@@ -61,6 +71,7 @@ urlpatterns = [
     path("", index),
     path("ok/", ok),
     path("deep/", deep),
+    path("query-variants/", query_variants),
     path("bad/", bad),
     path("not-found/", not_found),
     path("server-error/", server_error),

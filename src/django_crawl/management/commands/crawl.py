@@ -29,6 +29,7 @@ from rich.traceback import Traceback
 
 DEFAULT_DEPTH = 5
 DEFAULT_MAX_PAGES = 1000
+DEFAULT_MAX_QUERY_VARIANTS = 10
 TESTSERVER = "testserver"
 
 
@@ -76,6 +77,12 @@ def positive_int(value: str) -> int:
     if number <= 0:
         raise ArgumentTypeError("must be greater than 0")
     return number
+
+
+def max_query_variants(value: str) -> int | None:
+    if value == "unlimited":
+        return None
+    return positive_int(value)
 
 
 def normalize_url(url: str) -> str | None:
@@ -174,6 +181,15 @@ class Command(RichCommand):
             help=f"Maximum number of pages to request. Defaults to {DEFAULT_MAX_PAGES}.",
         )
         parser.add_argument(
+            "--max-query-variants",
+            type=max_query_variants,
+            default=DEFAULT_MAX_QUERY_VARIANTS,
+            help=(
+                "Maximum number of query string variants to crawl per path. "
+                f"Defaults to {DEFAULT_MAX_QUERY_VARIANTS}. Use 'unlimited' to disable."
+            ),
+        )
+        parser.add_argument(
             "--no-login",
             action="store_true",
             help="Do not automatically log in before crawling.",
@@ -202,6 +218,7 @@ class Command(RichCommand):
         start_urls = self.start_urls(options["urls"])
         depth: int = options["depth"]
         max_pages: int = options["max_pages"]
+        max_query_variants: int | None = options["max_query_variants"]
         code: str | None = options["code"]
 
         client = Client(HTTP_HOST=TESTSERVER)
@@ -224,7 +241,15 @@ class Command(RichCommand):
                 else nullcontext()
             )
             with status:
-                result = self.crawl(client, start_urls, depth, max_pages, code, status)
+                result = self.crawl(
+                    client,
+                    start_urls,
+                    depth,
+                    max_pages,
+                    max_query_variants,
+                    code,
+                    status,
+                )
 
         if result.errors:
             self.console.print(f"Found {pluralize_error(len(result.errors))}.")
@@ -310,17 +335,23 @@ class Command(RichCommand):
         start_urls: list[str],
         depth: int,
         max_pages: int,
+        max_query_variants: int | None,
         code: str | None,
         status: Any = None,
     ) -> CrawlResult:
         queue = deque(QueueItem(url, 0) for url in start_urls)
         seen: set[str] = set()
+        query_variants: dict[str, set[str]] = {}
         errors: list[CrawlError] = []
         code_namespace: dict[str, Any] = {}
 
         while queue and len(seen) < max_pages:
             item = queue.popleft()
             if item.url in seen:
+                continue
+            if not self.allow_query_variant(
+                item.url, query_variants, max_query_variants
+            ):
                 continue
             seen.add(item.url)
 
@@ -365,6 +396,23 @@ class Command(RichCommand):
                     queue.append(QueueItem(linked_url, item.depth + 1))
 
         return CrawlResult(count=len(seen), errors=errors)
+
+    def allow_query_variant(
+        self,
+        url: str,
+        query_variants: dict[str, set[str]],
+        max_query_variants: int | None,
+    ) -> bool:
+        if max_query_variants is None:
+            return True
+        parts = urlsplit(url)
+        variants = query_variants.setdefault(parts.path, set())
+        if parts.query in variants:
+            return True
+        if len(variants) >= max_query_variants:
+            return False
+        variants.add(parts.query)
+        return True
 
     def display_url(self, requested_url: str, final_url: str) -> str:
         if requested_url == final_url:

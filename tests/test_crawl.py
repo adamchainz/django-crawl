@@ -192,6 +192,8 @@ class ParserTests(TestCase):
             (crawl.non_negative_int, "-1", "must be greater than or equal to 0"),
             (crawl.positive_int, "x", "must be an integer"),
             (crawl.positive_int, "0", "must be greater than 0"),
+            (crawl.max_query_variants, "x", "must be an integer"),
+            (crawl.max_query_variants, "0", "must be greater than 0"),
         ]
         for function, value, message in cases:
             with self.subTest(function=function, value=value):
@@ -200,6 +202,9 @@ class ParserTests(TestCase):
 
     def test_positive_int_accepts_positive_values(self):
         assert crawl.positive_int("1") == 1
+
+    def test_max_query_variants_accepts_unlimited(self):
+        assert crawl.max_query_variants("unlimited") is None
 
 
 class URLTests(TestCase):
@@ -566,10 +571,35 @@ class CrawlInternalsTests(TestCase):
         command = Command()
         client = Client()
 
-        result = command.crawl(client, ["/ok/", "/ok/"], 0, 2, None)
+        result = command.crawl(client, ["/ok/", "/ok/"], 0, 2, 10, None)
 
         assert result.count == 1
         assert result.errors == []
+
+    def test_query_variants_are_limited_per_path(self):
+        command = Command()
+        client = Client()
+
+        result = command.crawl(client, ["/query-variants/"], 1, 10, 2, None)
+
+        assert result.count == 2
+        assert result.errors == []
+
+    def test_query_variant_limit_can_be_disabled(self):
+        command = Command()
+        client = Client()
+
+        result = command.crawl(client, ["/query-variants/"], 1, 10, None, None)
+
+        assert result.count == 4
+        assert result.errors == []
+
+    def test_seen_query_variant_is_allowed_after_limit(self):
+        command = Command()
+        query_variants = {"/path/": {"a=1"}}
+
+        assert command.allow_query_variant("/path/?a=1", query_variants, 1)
+        assert not command.allow_query_variant("/path/?a=2", query_variants, 1)
 
     def test_client_request_exception_is_reported(self):
         command = Command()
@@ -579,7 +609,7 @@ class CrawlInternalsTests(TestCase):
             raise RuntimeError("boom")
 
         with patch.object(client, "get", get):
-            result = command.crawl(client, ["/"], 0, 1, None)
+            result = command.crawl(client, ["/"], 0, 1, 10, None)
 
         assert result.count == 1
         assert len(result.errors) == 1
