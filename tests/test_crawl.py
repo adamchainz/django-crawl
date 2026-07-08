@@ -360,6 +360,11 @@ class LoginTests(TestCase):
 
         login_user.assert_called_once_with(client, "test@example.com")
 
+    def test_login_and_no_login_are_mutually_exclusive(self):
+        _out, err, returncode = run_command("crawl", "--login", "alice", "--no-login")
+        assert returncode != 0
+        assert "not allowed with" in err or "mutually exclusive" in err
+
     def test_login_superuser(self):
         command = Command()
         client = Client()

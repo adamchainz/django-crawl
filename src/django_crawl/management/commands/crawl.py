@@ -181,12 +181,13 @@ class Command(RichCommand):
                 f"Defaults to {DEFAULT_MAX_QUERY_VARIANTS}. Use 'unlimited' to disable."
             ),
         )
-        parser.add_argument(
+        login_group = parser.add_mutually_exclusive_group()
+        login_group.add_argument(
             "--no-login",
             action="store_true",
             help="Do not automatically log in before crawling.",
         )
-        parser.add_argument(
+        login_group.add_argument(
             "--login",
             metavar="USERNAME_OR_EMAIL",
             help="Log in as the user with this username or email address.",
