@@ -18,8 +18,7 @@ django-crawl
    :target: https://github.com/pre-commit/pre-commit
    :alt: pre-commit
 
-django-crawl provides a ``crawl`` management command that checks a Django site with Django’s test client.
-It follows internal links, follows redirects, and reports every broken page it finds before failing.
+An in-process site crawler using Django’s test client.
 
 ----
 

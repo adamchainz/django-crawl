@@ -7,7 +7,7 @@ requires = [
 [project]
 name = "django-crawl"
 version = "0"
-description = "Crawl Django sites with the test client and report broken pages."
+description = "An in-process site crawler using Django’s test client."
 readme = "README.rst"
 keywords = [
   "Django",
