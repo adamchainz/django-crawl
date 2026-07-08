@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from argparse import ArgumentTypeError
 from dataclasses import dataclass
 from io import StringIO
@@ -296,10 +297,15 @@ class OutputTests(TestCase):
         command.report_error(console, error)
         command.report_error(console, error)
 
-        assert exception.__notes__ == [
-            "URL: /bad/",
-            "HTTP 500 Internal Server Error",
-        ]
+        if sys.version_info >= (3, 11):
+            assert exception.__notes__ == [
+                "URL: /bad/",
+                "HTTP 500 Internal Server Error",
+            ]
+        else:
+            output = err.getvalue()
+            assert output.count("URL: /bad/") == 2
+            assert output.count("HTTP 500 Internal Server Error") == 2
 
 
 class LoginTests(TestCase):

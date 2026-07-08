@@ -464,7 +464,7 @@ class Command(RichCommand):
                     suppress=["django"],
                 )
             )
-        else:  # pragma: no cover
+        else:
             console.print(
                 Traceback.from_exception(
                     type_,
