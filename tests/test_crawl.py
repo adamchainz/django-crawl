@@ -309,20 +309,18 @@ class OutputTests(TestCase):
 
 
 class LoginTests(TestCase):
-    def test_setup_namespace_ignores_unconfigured_user_model(self):
+    def test_setup_namespace_without_auth_installed(self):
         command = Command()
-
-        def get_user_model():
-            raise LookupError
-
         client = Client()
 
-        with patch.object(crawl, "get_user_model", get_user_model):
-            assert command.setup_namespace(client) == {
-                "client": client,
-                "settings": crawl.settings,
-                "get_user_model": get_user_model,
-            }
+        with override_settings(INSTALLED_APPS=["django_crawl"]):
+            namespace = command.setup_namespace(client)
+
+        assert namespace == {
+            "client": client,
+            "settings": crawl.settings,
+            "get_user_model": crawl.get_user_model,
+        }
 
     def test_configure_client_logs_in_default_superuser(self):
         command = Command()
@@ -428,18 +426,31 @@ class LoginTests(TestCase):
 
         assert force_login_calls == []
 
-    def test_login_superuser_ignores_missing_auth(self):
+    def test_login_superuser_without_auth_installed(self):
         command = Command()
         client = Client()
         force_login_calls = []
 
         with (
-            patch.object(crawl, "get_user_model", side_effect=LookupError),
+            override_settings(INSTALLED_APPS=["django_crawl"]),
             patch.object(client, "force_login", force_login_calls.append),
         ):
             command.login_superuser(client)
 
         assert force_login_calls == []
+
+    def test_login_user_without_auth_installed_errors(self):
+        command = Command()
+        client = Client()
+
+        with (
+            override_settings(INSTALLED_APPS=["django_crawl"]),
+            self.assertRaisesRegex(
+                crawl.CommandError,
+                r"'django\.contrib\.auth' is not installed",
+            ),
+        ):
+            command.login_user(client, "alice")
 
     def test_login_user_by_username(self):
         command = Command()

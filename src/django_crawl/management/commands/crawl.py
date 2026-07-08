@@ -13,10 +13,12 @@ from contextlib import (
     redirect_stdout,
 )
 from dataclasses import dataclass
+from functools import partial
 from types import TracebackType
 from typing import Any
 from urllib.parse import urldefrag, urljoin, urlsplit, urlunsplit
 
+from django.apps import apps
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.exceptions import FieldDoesNotExist, ObjectDoesNotExist
@@ -31,6 +33,9 @@ DEFAULT_DEPTH = 5
 DEFAULT_MAX_PAGES = 1000
 DEFAULT_MAX_QUERY_VARIANTS = 10
 TESTSERVER = "testserver"
+
+
+auth_installed = partial(apps.is_installed, "django.contrib.auth")
 
 
 @dataclass(frozen=True)
@@ -284,17 +289,14 @@ class Command(RichCommand):
             "settings": settings,
             "get_user_model": get_user_model,
         }
-        try:
+        if auth_installed():
             namespace["User"] = get_user_model()
-        except Exception:
-            pass
         return namespace
 
     def login_superuser(self, client: Client) -> None:
-        try:
-            User = get_user_model()
-        except Exception:
+        if not auth_installed():
             return
+        User = get_user_model()
         user = (
             User._default_manager.filter(is_active=True, is_superuser=True)
             .order_by(User.USERNAME_FIELD)
@@ -304,6 +306,10 @@ class Command(RichCommand):
             client.force_login(user)
 
     def login_user(self, client: Client, username_or_email: str) -> None:
+        if not auth_installed():
+            raise CommandError(
+                "Cannot use --login: 'django.contrib.auth' is not installed."
+            )
         User = get_user_model()
         query = {User.USERNAME_FIELD: username_or_email}
         try:

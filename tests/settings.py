@@ -14,6 +14,8 @@ ROOT_URLCONF = "tests.urls"
 TIME_ZONE = "UTC"
 
 INSTALLED_APPS = [
+    "django.contrib.contenttypes",
+    "django.contrib.auth",
     "django_crawl",
 ]
 
