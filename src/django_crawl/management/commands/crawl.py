@@ -54,8 +54,6 @@ class CrawlResult:
 
 class SuppressDjangoRequestLogs(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
-        record.exc_info = None
-        record.exc_text = None
         return False
 
 
