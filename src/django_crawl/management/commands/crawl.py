@@ -105,16 +105,10 @@ def is_html(response: Any) -> bool:
     return "text/html" in response.headers.get("Content-Type", "")
 
 
-def pluralize_url(count: int) -> str:
+def pluralize(count: int, singular: str, plural: str) -> str:
     if count == 1:
-        return "1 URL"
-    return f"{count} URLs"
-
-
-def pluralize_error(count: int) -> str:
-    if count == 1:
-        return "1 error"
-    return f"{count} errors"
+        return f"1 {singular}"
+    return f"{count} {plural}"
 
 
 @contextmanager
@@ -250,10 +244,12 @@ class Command(RichCommand):
                 )
 
         if result.errors:
-            self.console.print(f"Found {pluralize_error(len(result.errors))}.")
-            self.console.print(f"Crawled {pluralize_url(result.count)}.")
+            self.console.print(
+                f"Found {pluralize(len(result.errors), 'error', 'errors')}."
+            )
+            self.console.print(f"Crawled {pluralize(result.count, 'URL', 'URLs')}.")
             raise SystemExit(1)
-        self.console.print(f"Crawled {pluralize_url(result.count)}.")
+        self.console.print(f"Crawled {pluralize(result.count, 'URL', 'URLs')}.")
 
     def start_urls(self, urls: list[str]) -> list[str]:
         if urls:

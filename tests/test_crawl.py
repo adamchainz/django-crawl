@@ -176,15 +176,13 @@ class CrawlCommandTests(TestCase):
 
 
 class ParserTests(TestCase):
-    def test_pluralize_url(self):
-        assert crawl.pluralize_url(0) == "0 URLs"
-        assert crawl.pluralize_url(1) == "1 URL"
-        assert crawl.pluralize_url(2) == "2 URLs"
-
-    def test_pluralize_error(self):
-        assert crawl.pluralize_error(0) == "0 errors"
-        assert crawl.pluralize_error(1) == "1 error"
-        assert crawl.pluralize_error(2) == "2 errors"
+    def test_pluralize(self):
+        assert crawl.pluralize(0, "URL", "URLs") == "0 URLs"
+        assert crawl.pluralize(1, "URL", "URLs") == "1 URL"
+        assert crawl.pluralize(2, "URL", "URLs") == "2 URLs"
+        assert crawl.pluralize(0, "error", "errors") == "0 errors"
+        assert crawl.pluralize(1, "error", "errors") == "1 error"
+        assert crawl.pluralize(2, "error", "errors") == "2 errors"
 
     def test_int_argument_parsers_reject_invalid_values(self):
         cases = [
