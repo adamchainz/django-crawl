@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import sys
 from argparse import ArgumentTypeError
-from dataclasses import dataclass
 from io import StringIO
 from unittest.mock import patch
 
@@ -12,25 +11,6 @@ from rich.console import Console
 from django_crawl.management.commands import crawl
 from django_crawl.management.commands.crawl import Command
 from tests.utils import run_command
-
-
-@dataclass
-class AnchorAttrs:
-    attrs: dict[str, object]
-
-
-@dataclass
-class AnchorAttributes:
-    attributes: dict[str, object]
-
-
-class AnchorGet:
-    def __init__(self, href: object) -> None:
-        self.href = href
-
-    def get(self, name: str) -> object:
-        assert name == "href"
-        return self.href
 
 
 class CrawlCommandTests(TestCase):
@@ -218,37 +198,14 @@ class URLTests(TestCase):
 
 
 class HTMLTests(TestCase):
-    def test_anchor_href(self):
-        cases = [
-            (AnchorAttrs({"href": "/attrs/"}), "/attrs/"),
-            (AnchorAttrs({"href": 1}), None),
-            (AnchorAttributes({"href": "/attributes/"}), "/attributes/"),
-            (AnchorAttributes({"href": 1}), None),
-            (AnchorGet("/get/"), "/get/"),
-            (AnchorGet(1), None),
-            (object(), None),
-        ]
-        for anchor, href in cases:
-            with self.subTest(anchor=anchor):
-                assert crawl.anchor_href(anchor) == href
-
-    def test_extract_links_ignores_non_string_hrefs(self):
+    def test_extract_links_returns_hrefs_and_skips_anchors_without_href(self):
         command = Command()
 
-        class Document:
-            def query(self, selector):
-                assert selector == "a[href]"
-                return [object()]
-
         class Response:
-            content = b""
+            content = b'<a href="/one/">one</a><a>no href</a><a href="/two/">two</a>'
             charset = "utf-8"
 
-        with (
-            patch.object(crawl, "JustHTML", lambda *args, **kwargs: Document()),
-            patch.object(crawl, "anchor_href", lambda anchor: None),
-        ):
-            assert command.extract_links(Response()) == []
+        assert command.extract_links(Response()) == ["/one/", "/two/"]
 
 
 class OutputTests(TestCase):

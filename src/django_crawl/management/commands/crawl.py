@@ -129,22 +129,6 @@ def paused_status(status: Any) -> Iterator[None]:
             start()
 
 
-def anchor_href(anchor: Any) -> str | None:
-    attrs = getattr(anchor, "attrs", None)
-    if attrs is not None:
-        href = attrs.get("href")
-        return href if isinstance(href, str) else None
-    attributes = getattr(anchor, "attributes", None)
-    if attributes is not None:
-        href = attributes.get("href")
-        return href if isinstance(href, str) else None
-    get = getattr(anchor, "get", None)
-    if get is not None:
-        href = get("href")
-        return href if isinstance(href, str) else None
-    return None
-
-
 class RawOutput:
     def __init__(self, output: Any) -> None:
         self.output = output
@@ -488,7 +472,5 @@ class Command(RichCommand):
         document = JustHTML(content, sanitize=False)
         links = []
         for anchor in document.query("a[href]"):
-            href = anchor_href(anchor)
-            if href is not None:
-                links.append(href)
+            links.append(anchor.attrs["href"])
         return links
