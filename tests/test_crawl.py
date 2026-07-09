@@ -200,6 +200,17 @@ class CrawlCommandTests(TestCase):
         assert err == ""
         assert returncode == 0
 
+    @override_settings(ALLOWED_HOSTS=["example.com"])
+    def test_testserver_added_to_allowed_hosts_when_not_present(self):
+        out, err, returncode = run_command("crawl", "/needs-host/", "--depth", "0")
+
+        # /needs-host/ calls request.get_host(). If testserver is not in
+        # ALLOWED_HOSTS, Django raises DisallowedHost → HTTP 400. With the
+        # fix, testserver is added, so get_host() succeeds and the view
+        # returns its normal 403 (wrong host for that view).
+        assert "HTTP 403 Forbidden" in out
+        assert returncode == 1
+
     def test_verbose_crawl_prints_every_url(self):
         out, err, returncode = run_command(
             "crawl", "/ok/", "--depth", "0", "--verbosity", "2"
