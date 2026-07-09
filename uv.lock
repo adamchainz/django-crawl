@@ -257,6 +257,7 @@ test = [
     { name = "pytest" },
     { name = "pytest-django" },
     { name = "pytest-randomly" },
+    { name = "unittest-parametrize" },
 ]
 
 [package.metadata]
@@ -277,6 +278,7 @@ test = [
     { name = "pytest", specifier = ">=9" },
     { name = "pytest-django" },
     { name = "pytest-randomly" },
+    { name = "unittest-parametrize" },
 ]
 
 [[package]]
@@ -507,4 +509,13 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/ba/19/1b9b0e29f30c6d35cb345486df41110984ea67ae69dddbc0e8a100999493/tzdata-2026.2.tar.gz", hash = "sha256:9173fde7d80d9018e02a662e168e5a2d04f87c41ea174b139fbef642eda62d10", size = 198254, upload-time = "2026-04-24T15:22:08.651Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/ce/e4/dccd7f47c4b64213ac01ef921a1337ee6e30e8c6466046018326977efd95/tzdata-2026.2-py2.py3-none-any.whl", hash = "sha256:bbe9af844f658da81a5f95019480da3a89415801f6cc966806612cc7169bffe7", size = 349321, upload-time = "2026-04-24T15:22:05.876Z" },
+]
+
+[[package]]
+name = "unittest-parametrize"
+version = "1.8.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/d0/5a/32bb766239d938f6030dd3920387dedc30b1c89aca01cb5281c3075bdf87/unittest_parametrize-1.8.0.tar.gz", hash = "sha256:90818ddeb28648e795eb53983f42d44e273b26ab03a1db49c27f6830ed419236", size = 15060, upload-time = "2025-09-09T11:04:26.317Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ab/62/193690ddc422c7af943b3f371ef34742dbb6a061e0b348e356399a52004d/unittest_parametrize-1.8.0-py3-none-any.whl", hash = "sha256:10a580aa04d13cf4f1c8e5e07be5694392b7ecef3b4d585bfc2bddce65bc3275", size = 9261, upload-time = "2025-09-09T11:04:25.025Z" },
 ]

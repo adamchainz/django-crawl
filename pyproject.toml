@@ -52,6 +52,7 @@ test = [
   "pytest>=9",
   "pytest-django",
   "pytest-randomly",
+  "unittest-parametrize",
 ]
 django51 = [ "django>=5.1a1,<5.2; python_version>='3.10'" ]
 django52 = [ "django>=5.2a1,<6; python_version>='3.10'" ]
