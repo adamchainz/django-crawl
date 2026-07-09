@@ -46,7 +46,25 @@ class CrawlCommandTests(TestCase):
             "print(response.wsgi_request.path)",
         )
 
-        assert out == "/target/\nCrawled 1 URL.\n"
+        assert out == "/target/\nCrawled 2 URLs.\n"
+        assert err == ""
+        assert returncode == 0
+
+    def test_crawl_ignores_external_redirect_target(self):
+        out, err, returncode = run_command(
+            "crawl", "/redirect-external/", "--depth", "0"
+        )
+
+        assert out == "Crawled 1 URL.\n"
+        assert err == ""
+        assert returncode == 0
+
+    def test_crawl_handles_redirect_without_location(self):
+        out, err, returncode = run_command(
+            "crawl", "/redirect-no-location/", "--depth", "0"
+        )
+
+        assert out == "Crawled 1 URL.\n"
         assert err == ""
         assert returncode == 0
 
@@ -189,9 +207,6 @@ class ParserTests(TestCase):
 class URLTests(TestCase):
     def test_normalize_url_accepts_relative_urls(self):
         assert crawl.normalize_url("relative/?x=1#fragment") == "/relative/?x=1"
-
-    def test_response_url_falls_back_without_request(self):
-        assert crawl.response_url(object(), "/fallback/") == "/fallback/"
 
     def test_start_urls_default_to_root(self):
         assert Command().start_urls([]) == ["/"]

@@ -51,6 +51,14 @@ def redirect_view(request: HttpRequest) -> HttpResponse:
     return redirect("/target/")
 
 
+def redirect_external(request: HttpRequest) -> HttpResponse:
+    return redirect("https://example.com/")
+
+
+def redirect_no_location(request: HttpRequest) -> HttpResponse:
+    return HttpResponse(status=302)
+
+
 def target(request: HttpRequest) -> HttpResponse:
     return HttpResponse("target")
 
@@ -76,6 +84,8 @@ urlpatterns = [
     path("not-found/", not_found),
     path("server-error/", server_error),
     path("redirect/", redirect_view),
+    path("redirect-external/", redirect_external),
+    path("redirect-no-location/", redirect_no_location),
     path("target/", target),
     path("needs-setup/", needs_setup),
     path("needs-host/", needs_host),

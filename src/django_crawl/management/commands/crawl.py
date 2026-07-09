@@ -99,13 +99,6 @@ def normalize_url(url: str) -> str | None:
     return urlunsplit(("", "", path, parts.query, ""))
 
 
-def response_url(response: Any, fallback: str) -> str:
-    request = getattr(response, "wsgi_request", None)
-    if request is not None:
-        return request.get_full_path()
-    return fallback
-
-
 def is_html(response: Any) -> bool:
     return "text/html" in response.headers.get("Content-Type", "")
 
@@ -352,7 +345,7 @@ class Command(RichCommand):
 
             try:
                 with paused_status(status):
-                    response = client.get(item.url, follow=True)
+                    response = client.get(item.url)
             except Exception:
                 error = CrawlError(
                     url=item.url,
@@ -364,10 +357,15 @@ class Command(RichCommand):
                     self.report_error(self.console, error)
                 continue
 
-            final_url = response_url(response, item.url)
-            display_url = self.display_url(item.url, final_url)
+            if response.status_code in (301, 302, 303, 307, 308):
+                location = response.headers.get("Location")
+                if location:
+                    linked_url = normalize_url(urljoin(item.url, location))
+                    if linked_url is not None and linked_url not in seen:
+                        queue.append(QueueItem(linked_url, item.depth))
+                continue
             if response.status_code >= 400:
-                error = self.status_error(display_url, response)
+                error = self.status_error(item.url, response)
                 errors.append(error)
                 with paused_status(status):
                     self.report_error(self.console, error)
@@ -375,7 +373,7 @@ class Command(RichCommand):
             if code is not None:
                 with paused_status(status):
                     error = self.run_response_code(
-                        code, code_namespace, response, display_url
+                        code, code_namespace, response, item.url
                     )
                 if error is not None:
                     errors.append(error)
@@ -386,7 +384,7 @@ class Command(RichCommand):
                 continue
 
             for href in self.extract_links(response):
-                linked_url = normalize_url(urljoin(final_url, href))
+                linked_url = normalize_url(urljoin(item.url, href))
                 if linked_url is not None and linked_url not in seen:
                     queue.append(QueueItem(linked_url, item.depth + 1))
 
@@ -408,11 +406,6 @@ class Command(RichCommand):
             return False
         variants.add(parts.query)
         return True
-
-    def display_url(self, requested_url: str, final_url: str) -> str:
-        if requested_url == final_url:
-            return requested_url
-        return f"{requested_url} -> {final_url}"
 
     def status_error(self, url: str, response: Any) -> CrawlError:
         return CrawlError(
