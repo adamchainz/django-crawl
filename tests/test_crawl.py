@@ -200,6 +200,15 @@ class CrawlCommandTests(TestCase):
         assert err == ""
         assert returncode == 0
 
+    def test_verbose_crawl_prints_every_url(self):
+        out, err, returncode = run_command(
+            "crawl", "/ok/", "--depth", "0", "--verbosity", "2"
+        )
+
+        assert out == "/ok/\nCrawled 1 URL.\n"
+        assert err == ""
+        assert returncode == 0
+
 
 class ParserTests(TestCase):
     def test_pluralize(self):
