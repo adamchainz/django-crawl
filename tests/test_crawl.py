@@ -68,6 +68,20 @@ class CrawlCommandTests(TestCase):
         assert err == ""
         assert returncode == 0
 
+    def test_crawl_follows_relative_href(self):
+        out, err, returncode = run_command(
+            "crawl",
+            "/nested/page/",
+            "--depth",
+            "1",
+            "-c",
+            "print(response.wsgi_request.path)",
+        )
+
+        assert out == "/nested/page/\n/target/\nCrawled 2 URLs.\n"
+        assert err == ""
+        assert returncode == 0
+
     def test_crawl_runs_code_for_every_response(self):
         out, err, returncode = run_command(
             "crawl",
@@ -243,10 +257,10 @@ class HTMLTests(TestCase):
         command = Command()
 
         class Response:
-            content = b'<a href="/one/">one</a><a>no href</a><a href="/two/">two</a>'
+            content = b'<a href="/one/">one</a><a>no href</a><a href="two/">two</a>'
             charset = "utf-8"
 
-        assert command.extract_links(Response()) == ["/one/", "/two/"]
+        assert command.extract_links(Response()) == ["/one/", "two/"]
 
 
 class OutputTests(TestCase):

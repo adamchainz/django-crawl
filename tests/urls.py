@@ -64,6 +64,10 @@ def target(request: HttpRequest) -> HttpResponse:
     return HttpResponse("target")
 
 
+def nested_page(request: HttpRequest) -> HttpResponse:
+    return HttpResponse('<a href="../../target/">relative target</a>')
+
+
 def needs_setup(request: HttpRequest) -> HttpResponse:
     if request.headers.get("x-setup") == "1":
         return HttpResponse("setup")
@@ -88,6 +92,7 @@ urlpatterns = [
     path("redirect-external/", redirect_external),
     path("redirect-no-location/", redirect_no_location),
     path("target/", target),
+    path("nested/page/", nested_page),
     path("needs-setup/", needs_setup),
     path("needs-host/", needs_host),
 ]
