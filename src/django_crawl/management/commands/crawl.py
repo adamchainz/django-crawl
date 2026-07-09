@@ -33,7 +33,7 @@ from django_crawl.ext.argparse import (
     max_query_variants as max_query_variants_type,
 )
 from django_crawl.ext.argparse import non_negative_int, positive_int
-from django_crawl.ext.html import extract_links
+from django_crawl.ext.html import extract_links, is_html
 
 DEFAULT_DEPTH = 5
 DEFAULT_MAX_PAGES = 1000
@@ -79,12 +79,6 @@ def normalize_url(url: str, allowed_hosts: tuple[str, ...] = ()) -> str | None:
     if not path.startswith("/"):
         path = f"/{path}"
     return urlunsplit(("", "", path, parts.query, ""))
-
-
-def is_html(response: Any) -> bool:
-    content_type = response.headers.get("Content-Type", "")
-    media_type = content_type.split(";", 1)[0].strip().lower()
-    return media_type == "text/html"
 
 
 def pluralize(count: int, singular: str, plural: str) -> str:

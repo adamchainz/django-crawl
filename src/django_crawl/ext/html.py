@@ -7,6 +7,12 @@ from django.http import HttpResponse
 from justhtml import JustHTML
 
 
+def is_html(response: HttpResponse) -> bool:
+    content_type = response.headers.get("Content-Type", "")
+    media_type = content_type.split(";", 1)[0].strip().lower()
+    return media_type == "text/html"
+
+
 def extract_links(response: HttpResponse) -> list[str]:
     links: list[str] = []
 

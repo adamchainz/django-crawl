@@ -6,9 +6,28 @@ from unittest_parametrize import ParametrizedTestCase, parametrize
 
 from django_crawl.ext.html import (
     extract_links,
+    is_html,
     parse_link_header,
     parse_refresh,
 )
+
+
+class IsHtmlTests(ParametrizedTestCase, SimpleTestCase):
+    @parametrize(
+        ("content_type", "expected"),
+        [
+            ("text/html", True),
+            ("text/html; charset=utf-8", True),
+            ("  Text/HTML ; charset=utf-8", True),
+            ("text/html-fragment", False),
+            ("application/xhtml+xml", False),
+            ("text/plain", False),
+            ("", False),
+        ],
+    )
+    def test_is_html(self, content_type, expected):
+        response = HttpResponse(content_type=content_type)
+        assert is_html(response) is expected
 
 
 class ExtractLinksTests(SimpleTestCase):
