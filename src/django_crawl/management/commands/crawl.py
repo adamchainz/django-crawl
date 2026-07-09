@@ -133,8 +133,9 @@ class PassthroughStream:
     def __init__(self, output: Any) -> None:
         self.output = output
 
-    def write(self, text: str) -> None:
+    def write(self, text: str) -> int:
         self.output.write(text, ending="")
+        return len(text)
 
     def flush(self) -> None:
         self.output.flush()

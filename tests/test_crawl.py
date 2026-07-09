@@ -224,7 +224,7 @@ class OutputTests(TestCase):
         output = Output()
         raw = crawl.PassthroughStream(output)
 
-        raw.write("hello")
+        assert raw.write("hello") == 5
         raw.flush()
 
         assert output.value == "hello"
