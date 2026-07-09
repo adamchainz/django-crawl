@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import sys
-from argparse import ArgumentTypeError
 from io import StringIO
 from unittest.mock import patch
 
@@ -196,26 +195,6 @@ class ParserTests(TestCase):
         assert crawl.pluralize(0, "error", "errors") == "0 errors"
         assert crawl.pluralize(1, "error", "errors") == "1 error"
         assert crawl.pluralize(2, "error", "errors") == "2 errors"
-
-    def test_int_argument_parsers_reject_invalid_values(self):
-        cases = [
-            (crawl.non_negative_int, "x", "must be an integer"),
-            (crawl.non_negative_int, "-1", "must be greater than or equal to 0"),
-            (crawl.positive_int, "x", "must be an integer"),
-            (crawl.positive_int, "0", "must be greater than 0"),
-            (crawl.max_query_variants, "x", "must be an integer"),
-            (crawl.max_query_variants, "0", "must be greater than 0"),
-        ]
-        for function, value, message in cases:
-            with self.subTest(function=function, value=value):
-                with self.assertRaisesRegex(ArgumentTypeError, message):
-                    function(value)
-
-    def test_positive_int_accepts_positive_values(self):
-        assert crawl.positive_int("1") == 1
-
-    def test_max_query_variants_accepts_unlimited(self):
-        assert crawl.max_query_variants("unlimited") is None
 
 
 class URLTests(TestCase):

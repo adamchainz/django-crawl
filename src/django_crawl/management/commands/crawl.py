@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import sys
-from argparse import ArgumentParser, ArgumentTypeError
+from argparse import ArgumentParser
 from collections import deque
 from collections.abc import Iterator
 from contextlib import (
@@ -29,6 +29,11 @@ from django_rich.management import RichCommand
 from justhtml import JustHTML
 from rich.console import Console
 from rich.traceback import Traceback
+
+from django_crawl.ext.argparse import (
+    max_query_variants as max_query_variants_type,
+)
+from django_crawl.ext.argparse import non_negative_int, positive_int
 
 DEFAULT_DEPTH = 5
 DEFAULT_MAX_PAGES = 1000
@@ -61,32 +66,6 @@ class CrawlResult:
 class SuppressDjangoRequestLogs(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         return False
-
-
-def non_negative_int(value: str) -> int:
-    try:
-        number = int(value)
-    except ValueError:
-        raise ArgumentTypeError("must be an integer") from None
-    if number < 0:
-        raise ArgumentTypeError("must be greater than or equal to 0")
-    return number
-
-
-def positive_int(value: str) -> int:
-    try:
-        number = int(value)
-    except ValueError:
-        raise ArgumentTypeError("must be an integer") from None
-    if number <= 0:
-        raise ArgumentTypeError("must be greater than 0")
-    return number
-
-
-def max_query_variants(value: str) -> int | None:
-    if value == "unlimited":
-        return None
-    return positive_int(value)
 
 
 def normalize_url(url: str, allowed_hosts: tuple[str, ...] = ()) -> str | None:
@@ -172,7 +151,7 @@ class Command(RichCommand):
         )
         parser.add_argument(
             "--max-query-variants",
-            type=max_query_variants,
+            type=max_query_variants_type,
             default=DEFAULT_MAX_QUERY_VARIANTS,
             help=(
                 "Maximum number of query string variants to crawl per path. "
