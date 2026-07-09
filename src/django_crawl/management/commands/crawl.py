@@ -23,6 +23,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.exceptions import FieldDoesNotExist, ObjectDoesNotExist
 from django.core.management.base import CommandError
+from django.http.request import validate_host
 from django.test import Client, override_settings
 from django_rich.management import RichCommand
 from justhtml import JustHTML
@@ -88,10 +89,12 @@ def max_query_variants(value: str) -> int | None:
     return positive_int(value)
 
 
-def normalize_url(url: str) -> str | None:
+def normalize_url(url: str, allowed_hosts: tuple[str, ...] = ()) -> str | None:
     url, _fragment = urldefrag(url)
     parts = urlsplit(url)
-    if parts.scheme or parts.netloc:
+    if parts.scheme:
+        return None
+    if parts.netloc and not validate_host(parts.netloc, allowed_hosts):
         return None
     path = parts.path or "/"
     if not path.startswith("/"):
@@ -233,6 +236,11 @@ class Command(RichCommand):
             django_request_logger.addFilter(log_filter)
             stack.callback(django_request_logger.removeFilter, log_filter)
             stack.enter_context(status)
+            allowed_hosts = (
+                (http_host, *settings.ALLOWED_HOSTS)
+                if http_host
+                else tuple(settings.ALLOWED_HOSTS)
+            )
             result = self.crawl(
                 client,
                 start_urls,
@@ -241,6 +249,7 @@ class Command(RichCommand):
                 max_query_variants,
                 code,
                 status,
+                allowed_hosts,
             )
 
         if result.errors:
@@ -333,6 +342,7 @@ class Command(RichCommand):
         max_query_variants: int | None,
         code: str | None,
         status: Any = None,
+        allowed_hosts: tuple[str, ...] = (),
     ) -> CrawlResult:
         queue = deque(QueueItem(url, 0) for url in start_urls)
         seen: set[str] = set()
@@ -367,7 +377,9 @@ class Command(RichCommand):
             if response.status_code in (301, 302, 303, 307, 308):
                 location = response.headers.get("Location")
                 if location:
-                    linked_url = normalize_url(urljoin(item.url, location))
+                    linked_url = normalize_url(
+                        urljoin(item.url, location), allowed_hosts
+                    )
                     if linked_url is not None and linked_url not in seen:
                         queue.append(QueueItem(linked_url, item.depth))
                 continue
@@ -391,7 +403,7 @@ class Command(RichCommand):
                 continue
 
             for href in self.extract_links(response):
-                linked_url = normalize_url(urljoin(item.url, href))
+                linked_url = normalize_url(urljoin(item.url, href), allowed_hosts)
                 if linked_url is not None and linked_url not in seen:
                     queue.append(QueueItem(linked_url, item.depth + 1))
 

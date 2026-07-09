@@ -59,7 +59,6 @@ django-crawl provides a ``crawl`` management command that iteratively crawls thr
 It renders pages within the same process and avoids serializing requests and responses to HTTP, making it somewhat faster and a lot more flexible than regular HTTP crawlers.
 ``crawl`` follows internal links, follows redirects, and reports every broken page it finds before failing.
 Only ``GET`` requests are made; forms are not submitted.
-Links with a scheme or host (including protocol-relative ``//example.com/…`` URLs) are treated as external and skipped.
 
 To get started, run the ``crawl`` management command:
 

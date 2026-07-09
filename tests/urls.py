@@ -13,6 +13,7 @@ def index(request: HttpRequest) -> HttpResponse:
         <a href="/not-found/">not found</a>
         <a href="/server-error/">server error</a>
         <a href="https://example.com/external/">external</a>
+        <a href="//other.example.com/external-protocol-relative/">external protocol-relative</a>
         """
     )
 
