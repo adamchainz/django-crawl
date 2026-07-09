@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from django.http import HttpRequest, HttpResponse
+from django.http import HttpRequest, HttpResponse, StreamingHttpResponse
 from django.shortcuts import redirect
 from django.urls import path
 
@@ -80,6 +80,13 @@ def needs_host(request: HttpRequest) -> HttpResponse:
     return HttpResponse("forbidden", status=403)
 
 
+def streaming(request: HttpRequest) -> StreamingHttpResponse:
+    return StreamingHttpResponse(
+        iter([b'<a href="/ok/">ok</a>']),
+        content_type="text/html",
+    )
+
+
 urlpatterns = [
     path("", index),
     path("ok/", ok),
@@ -95,4 +102,5 @@ urlpatterns = [
     path("nested/page/", nested_page),
     path("needs-setup/", needs_setup),
     path("needs-host/", needs_host),
+    path("streaming/", streaming),
 ]
