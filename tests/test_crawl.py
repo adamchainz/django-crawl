@@ -209,7 +209,7 @@ class HTMLTests(TestCase):
 
 
 class OutputTests(TestCase):
-    def test_raw_output_flushes_wrapped_output(self):
+    def test_passthrough_stream_flushes_wrapped_output(self):
         class Output:
             def __init__(self) -> None:
                 self.value = ""
@@ -222,7 +222,7 @@ class OutputTests(TestCase):
                 self.flushed = True
 
         output = Output()
-        raw = crawl.RawOutput(output)
+        raw = crawl.PassthroughStream(output)
 
         raw.write("hello")
         raw.flush()

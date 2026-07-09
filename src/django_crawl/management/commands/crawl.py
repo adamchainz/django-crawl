@@ -129,7 +129,7 @@ def paused_status(status: Any) -> Iterator[None]:
             start()
 
 
-class RawOutput:
+class PassthroughStream:
     def __init__(self, output: Any) -> None:
         self.output = output
 
@@ -421,8 +421,8 @@ class Command(RichCommand):
         namespace["response"] = response
         try:
             with (
-                redirect_stdout(RawOutput(self.stdout)),
-                redirect_stderr(RawOutput(self.stderr)),
+                redirect_stdout(PassthroughStream(self.stdout)),
+                redirect_stderr(PassthroughStream(self.stderr)),
             ):
                 exec(code, namespace, namespace)
         except Exception:
