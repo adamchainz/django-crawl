@@ -154,7 +154,10 @@ class Command(RichCommand):
             "--depth",
             type=non_negative_int,
             default=DEFAULT_DEPTH,
-            help=f"Maximum link depth to crawl. Defaults to {DEFAULT_DEPTH}.",
+            help=(
+                f"Maximum link depth to crawl. Defaults to {DEFAULT_DEPTH}. "
+                "0 means crawl only the start URLs without following links."
+            ),
         )
         parser.add_argument(
             "--max-pages",
