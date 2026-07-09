@@ -231,17 +231,6 @@ class IsHtmlTests(TestCase):
         assert not crawl.is_html(response(""))
 
 
-class HTMLTests(TestCase):
-    def test_extract_links_returns_hrefs_and_skips_anchors_without_href(self):
-        command = Command()
-
-        class Response:
-            content = b'<a href="/one/">one</a><a>no href</a><a href="two/">two</a>'
-            charset = "utf-8"
-
-        assert command.extract_links(Response()) == ["/one/", "two/"]
-
-
 class OutputTests(TestCase):
     def test_passthrough_stream_flushes_wrapped_output(self):
         class Output:

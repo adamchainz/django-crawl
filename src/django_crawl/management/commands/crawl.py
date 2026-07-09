@@ -26,7 +26,6 @@ from django.core.management.base import CommandError
 from django.http.request import validate_host
 from django.test import Client, override_settings
 from django_rich.management import RichCommand
-from justhtml import JustHTML
 from rich.console import Console
 from rich.traceback import Traceback
 
@@ -34,6 +33,7 @@ from django_crawl.ext.argparse import (
     max_query_variants as max_query_variants_type,
 )
 from django_crawl.ext.argparse import non_negative_int, positive_int
+from django_crawl.ext.html import extract_links
 
 DEFAULT_DEPTH = 5
 DEFAULT_MAX_PAGES = 1000
@@ -383,7 +383,7 @@ class Command(RichCommand):
             if item.depth >= depth or not is_html(response):
                 continue
 
-            for href in self.extract_links(response):
+            for href in extract_links(response):
                 linked_url = normalize_url(urljoin(item.url, href), allowed_hosts)
                 if linked_url is not None and linked_url not in seen:
                     queue.append(QueueItem(linked_url, item.depth + 1))
@@ -461,8 +461,3 @@ class Command(RichCommand):
         if not added_notes:
             for note in notes:
                 console.print(note)
-
-    def extract_links(self, response: Any) -> list[str]:
-        content = response.content.decode(response.charset or "utf-8", errors="replace")
-        document = JustHTML(content, sanitize=False)
-        return [anchor.attrs["href"] for anchor in document.query("a[href]")]
