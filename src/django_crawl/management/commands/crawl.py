@@ -208,6 +208,11 @@ class Command(RichCommand):
 
         django_request_logger = logging.getLogger("django.request")
         log_filter = SuppressDjangoRequestLogs()
+        status: Any = (
+            self.console.status("Crawling site…")
+            if self.console.is_terminal
+            else nullcontext()
+        )
         with ExitStack() as stack:
             if "*" not in settings.ALLOWED_HOSTS:
                 allowed_hosts = [*settings.ALLOWED_HOSTS]
@@ -217,21 +222,16 @@ class Command(RichCommand):
                 stack.enter_context(override_settings(ALLOWED_HOSTS=allowed_hosts))
             django_request_logger.addFilter(log_filter)
             stack.callback(django_request_logger.removeFilter, log_filter)
-            status = (
-                self.console.status("Crawling site…")
-                if self.console.is_terminal
-                else nullcontext()
+            stack.enter_context(status)
+            result = self.crawl(
+                client,
+                start_urls,
+                depth,
+                max_pages,
+                max_query_variants,
+                code,
+                status,
             )
-            with status:
-                result = self.crawl(
-                    client,
-                    start_urls,
-                    depth,
-                    max_pages,
-                    max_query_variants,
-                    code,
-                    status,
-                )
 
         if result.errors:
             self.console.print(
@@ -258,14 +258,14 @@ class Command(RichCommand):
     def configure_client(self, client: Client, options: dict[str, Any]) -> None:
         namespace = self.setup_namespace(client)
 
-        for code in options["setup_code"]:
-            exec(code, namespace, namespace)
-
         login = options["login"]
         if login is not None:
             self.login_user(client, login)
         elif not options["no_login"]:
             self.login_superuser(client)
+
+        for code in options["setup_code"]:
+            exec(code, namespace, namespace)
 
     def setup_namespace(self, client: Client) -> dict[str, Any]:
         namespace = {

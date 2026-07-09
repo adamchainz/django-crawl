@@ -123,6 +123,7 @@ Use ``--login`` to log in as a specific user by username or email address:
     $ ./manage.py crawl --login alice@example.com
 
 Use ``--setup-code`` for small snippets that configure the client before crawling.
+Setup code runs after login, so it can inspect or adjust the logged-in session.
 For example, to set the ``x-site`` header:
 
 .. code-block:: console
