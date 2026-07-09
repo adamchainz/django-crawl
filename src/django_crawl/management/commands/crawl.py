@@ -123,6 +123,13 @@ def paused_status(status: Any) -> Iterator[None]:
 
 
 class PassthroughStream:
+    """
+    Adapt a Django ``OutputWrapper`` to the file-like interface expected by
+    ``redirect_stdout``/``redirect_stderr`` and ``print()``: suppress the
+    wrapper's default trailing newline and return the number of characters
+    written from ``write()``.
+    """
+
     def __init__(self, output: Any) -> None:
         self.output = output
 
