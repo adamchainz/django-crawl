@@ -184,6 +184,7 @@ class Command(RichCommand):
         max_pages: int = options["max_pages"]
         max_query_variants: int | None = options["max_query_variants"]
         code: str | None = options["code"]
+        verbosity: int = options["verbosity"]
 
         client = Client(HTTP_HOST=TESTSERVER)
         self.configure_client(client, options)
@@ -225,6 +226,7 @@ class Command(RichCommand):
                 code,
                 status,
                 allowed_hosts,
+                verbosity=verbosity,
             )
 
         if result.errors:
@@ -318,6 +320,7 @@ class Command(RichCommand):
         code: str | None,
         status: Any = None,
         allowed_hosts: tuple[str, ...] = (),
+        verbosity: int = 1,
     ) -> CrawlResult:
         queue = deque(QueueItem(url, 0) for url in start_urls)
         seen: set[str] = set()
@@ -337,6 +340,8 @@ class Command(RichCommand):
 
             try:
                 with paused_status(status):
+                    if verbosity >= 2:
+                        self.console.print(item.url)
                     response = client.get(item.url)
             except Exception:
                 error = CrawlError(
