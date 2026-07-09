@@ -218,12 +218,18 @@ class Command(RichCommand):
             else nullcontext()
         )
         with ExitStack() as stack:
-            if "*" not in settings.ALLOWED_HOSTS:
-                allowed_hosts = [*settings.ALLOWED_HOSTS]
-                for host in (TESTSERVER, client.defaults.get("HTTP_HOST")):
-                    if host is not None and host not in allowed_hosts:
-                        allowed_hosts.append(host)
-                stack.enter_context(override_settings(ALLOWED_HOSTS=allowed_hosts))
+            http_host = client.defaults.get("HTTP_HOST")
+            if (
+                http_host
+                and http_host != TESTSERVER
+                and http_host not in settings.ALLOWED_HOSTS
+                and "*" not in settings.ALLOWED_HOSTS
+            ):
+                stack.enter_context(
+                    override_settings(
+                        ALLOWED_HOSTS=[*settings.ALLOWED_HOSTS, http_host]
+                    )
+                )
             django_request_logger.addFilter(log_filter)
             stack.callback(django_request_logger.removeFilter, log_filter)
             stack.enter_context(status)
