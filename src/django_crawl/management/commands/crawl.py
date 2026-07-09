@@ -463,7 +463,4 @@ class Command(RichCommand):
     def extract_links(self, response: Any) -> list[str]:
         content = response.content.decode(response.charset or "utf-8", errors="replace")
         document = JustHTML(content, sanitize=False)
-        links = []
-        for anchor in document.query("a[href]"):
-            links.append(anchor.attrs["href"])
-        return links
+        return [anchor.attrs["href"] for anchor in document.query("a[href]")]
