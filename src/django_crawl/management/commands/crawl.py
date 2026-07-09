@@ -442,29 +442,21 @@ class Command(RichCommand):
 
         type_, value, traceback = error.exc_info
         notes = [f"URL: {error.url}", error.message]
-        if hasattr(value, "add_note"):
+        added_notes = hasattr(value, "add_note")
+        if added_notes:
             for note in notes:
                 if note not in getattr(value, "__notes__", ()):
                     value.add_note(note)
-            console.print(
-                Traceback.from_exception(
-                    type_,
-                    value,
-                    traceback,
-                    show_locals=False,
-                    suppress=["django"],
-                )
+        console.print(
+            Traceback.from_exception(
+                type_,
+                value,
+                traceback,
+                show_locals=False,
+                suppress=["django"],
             )
-        else:
-            console.print(
-                Traceback.from_exception(
-                    type_,
-                    value,
-                    traceback,
-                    show_locals=False,
-                    suppress=["django"],
-                )
-            )
+        )
+        if not added_notes:
             for note in notes:
                 console.print(note)
 
