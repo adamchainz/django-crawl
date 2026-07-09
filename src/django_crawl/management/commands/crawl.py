@@ -103,7 +103,9 @@ def normalize_url(url: str, allowed_hosts: tuple[str, ...] = ()) -> str | None:
 
 
 def is_html(response: Any) -> bool:
-    return "text/html" in response.headers.get("Content-Type", "")
+    content_type = response.headers.get("Content-Type", "")
+    media_type = content_type.split(";", 1)[0].strip().lower()
+    return media_type == "text/html"
 
 
 def pluralize(count: int, singular: str, plural: str) -> str:

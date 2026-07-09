@@ -224,6 +224,20 @@ class URLTests(TestCase):
         assert Command().start_urls([]) == ["/"]
 
 
+class IsHtmlTests(TestCase):
+    def test_is_html(self):
+        def response(content_type):
+            return type("R", (), {"headers": {"Content-Type": content_type}})()
+
+        assert crawl.is_html(response("text/html"))
+        assert crawl.is_html(response("text/html; charset=utf-8"))
+        assert crawl.is_html(response("  Text/HTML ; charset=utf-8"))
+        assert not crawl.is_html(response("text/html-fragment"))
+        assert not crawl.is_html(response("application/xhtml+xml"))
+        assert not crawl.is_html(response("text/plain"))
+        assert not crawl.is_html(response(""))
+
+
 class HTMLTests(TestCase):
     def test_extract_links_returns_hrefs_and_skips_anchors_without_href(self):
         command = Command()
