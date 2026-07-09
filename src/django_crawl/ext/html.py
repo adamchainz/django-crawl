@@ -3,17 +3,17 @@ from __future__ import annotations
 import re
 from urllib.parse import urljoin
 
-from django.http import HttpResponse
+from django.http import HttpResponseBase
 from justhtml import JustHTML
 
 
-def is_html(response: HttpResponse) -> bool:
+def is_html(response: HttpResponseBase) -> bool:
     content_type = response.headers.get("Content-Type", "")
     media_type = content_type.split(";", 1)[0].strip().lower()
     return media_type == "text/html"
 
 
-def extract_links(response: HttpResponse) -> list[str]:
+def extract_links(response: HttpResponseBase) -> list[str]:
     links: list[str] = []
 
     link_header = response.headers.get("Link")
@@ -26,7 +26,14 @@ def extract_links(response: HttpResponse) -> list[str]:
         if refresh_url:
             links.append(refresh_url)
 
-    content = response.content.decode(response.charset or "utf-8", errors="replace")
+    if response.streaming:
+        content_bytes = b"".join(
+            c if isinstance(c, bytes) else c.encode(response.charset or "utf-8")
+            for c in response.streaming_content  # type: ignore[union-attr]
+        )
+    else:
+        content_bytes = response.content
+    content = content_bytes.decode(response.charset or "utf-8", errors="replace")
     document = JustHTML(content, sanitize=False)
 
     base_href = ""

@@ -81,6 +81,20 @@ class CrawlCommandTests(TestCase):
         assert err == ""
         assert returncode == 0
 
+    def test_crawl_follows_links_from_streaming_response(self):
+        out, err, returncode = run_command(
+            "crawl",
+            "/streaming/",
+            "--depth",
+            "1",
+            "-c",
+            "print(response.wsgi_request.path)",
+        )
+
+        assert out == "/streaming/\n/ok/\nCrawled 2 URLs.\n"
+        assert err == ""
+        assert returncode == 0
+
     def test_crawl_runs_code_for_every_response(self):
         out, err, returncode = run_command(
             "crawl",

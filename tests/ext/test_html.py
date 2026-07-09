@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from django.http import HttpResponse
+from django.http import HttpResponse, StreamingHttpResponse
 from django.test import SimpleTestCase
 from unittest_parametrize import ParametrizedTestCase, parametrize
 
@@ -27,6 +27,17 @@ class IsHtmlTests(ParametrizedTestCase, SimpleTestCase):
     )
     def test_is_html(self, content_type, expected):
         response = HttpResponse(content_type=content_type)
+        assert is_html(response) is expected
+
+    @parametrize(
+        ("content_type", "expected"),
+        [
+            ("text/html", True),
+            ("text/plain", False),
+        ],
+    )
+    def test_is_html_streaming_response(self, content_type, expected):
+        response = StreamingHttpResponse(iter([]), content_type=content_type)
         assert is_html(response) is expected
 
 
@@ -86,6 +97,28 @@ class ExtractLinksTests(SimpleTestCase):
         response = HttpResponse('<a href="">empty</a><a href="/ok">ok</a>')
 
         assert extract_links(response) == ["/ok"]
+
+    def test_streaming_response_links_are_extracted(self):
+        response = StreamingHttpResponse(
+            iter([b'<a href="/one/">one</a>', b'<a href="/two/">two</a>']),
+            content_type="text/html",
+        )
+
+        assert extract_links(response) == ["/one/", "/two/"]
+
+    def test_streaming_response_with_link_header(self):
+        response = StreamingHttpResponse(iter([b""]), content_type="text/html")
+        response["Link"] = "</style.css>; rel=preload"
+
+        assert extract_links(response) == ["/style.css"]
+
+    def test_streaming_response_chunks_are_concatenated(self):
+        response = StreamingHttpResponse(
+            iter([b"<a hr", b'ef="/page/">p</a>']),
+            content_type="text/html",
+        )
+
+        assert extract_links(response) == ["/page/"]
 
     def test_meta_refresh(self):
         response = HttpResponse(
