@@ -55,7 +55,7 @@ Installation
 Usage
 =====
 
-django-crawl provides a ``crawl`` management command that iteratively crawls through your site using Django’s tst client.
+django-crawl provides a ``crawl`` management command that iteratively crawls through your site using Django’s test client.
 It renders pages within the same process and avoids serializing requests and responses to HTTP, making it somewhat faster and a lot more flexible than regular HTTP crawlers.
 ``crawl`` follows internal links, follows redirects, and reports every broken page it finds before failing.
 
@@ -65,7 +65,7 @@ To get started, run the ``crawl`` management command:
 
     $ ./manage.py crawl
 
-By default, the command starts at ``/`` and crawls up to 100 pages, up to five links deep.
+By default, the command starts at ``/`` and crawls up to 1000 pages, up to five links deep.
 Pass one or more start URLs to crawl specific areas:
 
 .. code-block:: console
@@ -77,6 +77,12 @@ Use ``--depth`` to control how many links are followed from each start URL:
 .. code-block:: console
 
     $ ./manage.py crawl --depth 2
+
+Use ``--max-pages`` to change the overall page limit:
+
+.. code-block:: console
+
+    $ ./manage.py crawl --max-pages 500
 
 By default, django-crawl crawls up to 10 query string variants per path.
 This avoids it getting stuck in large spaces of sorting and filtering links, such as Django admin changelists.
