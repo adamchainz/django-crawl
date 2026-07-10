@@ -20,10 +20,11 @@ from typing import Any
 from urllib.parse import urldefrag, urljoin, urlsplit, urlunsplit
 
 from django.apps import apps
-from django.conf import settings
-from django.contrib.auth import get_user_model
-from django.core.exceptions import FieldDoesNotExist, ObjectDoesNotExist
-from django.core.management.base import CommandError
+from django.conf import settings as settings
+from django.contrib.auth import get_user_model as get_user_model
+from django.core.exceptions import FieldDoesNotExist as FieldDoesNotExist
+from django.core.exceptions import ObjectDoesNotExist as ObjectDoesNotExist
+from django.core.management.base import CommandError as CommandError
 from django.http.request import validate_host
 from django.test import Client, override_settings
 from django_rich.management import RichCommand
@@ -55,7 +56,9 @@ class QueueItem:
 class CrawlError:
     url: str
     message: str
-    exc_info: tuple[type[BaseException], BaseException, TracebackType] | None = None
+    exc_info: tuple[type[BaseException], BaseException, TracebackType | None] | None = (
+        None
+    )
 
 
 @dataclass
@@ -111,7 +114,7 @@ def status_aware_stderr(status: Any) -> Iterator[None]:
 
     class _Stream:
         def write(self, data: str) -> int:
-            return _pause_status(real_stderr.write, data)  # type: ignore[return-value]
+            return _pause_status(real_stderr.write, data)  # type: ignore[no-any-return]
 
         def flush(self) -> None:
             real_stderr.flush()
@@ -119,7 +122,7 @@ def status_aware_stderr(status: Any) -> Iterator[None]:
         def __getattr__(self, name: str) -> Any:
             return getattr(real_stderr, name)
 
-    sys.stderr = _Stream()  # type: ignore[assignment]
+    sys.stderr = _Stream()
 
     original_emit = logging.StreamHandler.emit
 
@@ -128,7 +131,7 @@ def status_aware_stderr(status: Any) -> Iterator[None]:
     ) -> None:
         _pause_status(original_emit, handler_self, record)
 
-    logging.StreamHandler.emit = _emit  # type: ignore[method-assign]
+    logging.StreamHandler.emit = _emit  # type: ignore[assignment]
 
     original_showwarning = warnings.showwarning
 
@@ -335,7 +338,7 @@ class Command(RichCommand):
         User = get_user_model()
         user = (
             User._default_manager.filter(is_active=True, is_superuser=True)
-            .order_by(User.USERNAME_FIELD)
+            .order_by(User.USERNAME_FIELD)  # type: ignore[attr-defined]
             .first()
         )
         if user is not None:
@@ -347,7 +350,7 @@ class Command(RichCommand):
                 "Cannot use --login: 'django.contrib.auth' is not installed."
             )
         User = get_user_model()
-        query = {User.USERNAME_FIELD: username_or_email}
+        query = {User.USERNAME_FIELD: username_or_email}  # type: ignore[attr-defined]
         try:
             user = User._default_manager.get(**query)
         except ObjectDoesNotExist:
@@ -398,10 +401,11 @@ class Command(RichCommand):
                     self.console.print(item.url)
                 response = client.get(item.url)
             except Exception:
+                _exc = sys.exc_info()
                 error = CrawlError(
                     url=item.url,
                     message="HTTP 500 Internal Server Error",
-                    exc_info=sys.exc_info(),
+                    exc_info=_exc if _exc[0] is not None else None,
                 )
                 errors.append(error)
                 self.report_error(self.console, error)
@@ -422,10 +426,12 @@ class Command(RichCommand):
                 self.report_error(self.console, error)
 
             if code is not None:
-                error = self.run_response_code(code, code_namespace, response, item.url)
-                if error is not None:
-                    errors.append(error)
-                    self.report_error(self.console, error)
+                code_error = self.run_response_code(
+                    code, code_namespace, response, item.url
+                )
+                if code_error is not None:
+                    errors.append(code_error)
+                    self.report_error(self.console, code_error)
 
             if item.depth >= depth or not is_html(response):
                 continue
@@ -476,10 +482,11 @@ class Command(RichCommand):
             ):
                 exec(code, namespace, namespace)
         except Exception:
+            _exc = sys.exc_info()
             return CrawlError(
                 url=url,
                 message="Response code raised an exception.",
-                exc_info=sys.exc_info(),
+                exc_info=_exc if _exc[0] is not None else None,
             )
         return None
 
