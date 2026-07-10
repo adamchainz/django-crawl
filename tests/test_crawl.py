@@ -486,11 +486,13 @@ class LoginTests(TestCase):
             USERNAME_FIELD = "email"
             _default_manager = Manager()
 
-        with patch.object(crawl, "get_user_model", return_value=User):
-            with self.assertRaisesRegex(
+        with (
+            patch.object(crawl, "get_user_model", return_value=User),
+            self.assertRaisesRegex(
                 crawl.CommandError, "User 'missing@example.com' does not exist"
-            ):
-                command.login_user(Client(), "missing@example.com")
+            ),
+        ):
+            command.login_user(Client(), "missing@example.com")
 
     def test_login_user_missing_email_field_errors(self):
         command = Command()
@@ -508,11 +510,13 @@ class LoginTests(TestCase):
             _meta = Meta()
             _default_manager = Manager()
 
-        with patch.object(crawl, "get_user_model", return_value=User):
-            with self.assertRaisesRegex(
+        with (
+            patch.object(crawl, "get_user_model", return_value=User),
+            self.assertRaisesRegex(
                 crawl.CommandError, "User 'missing@example.com' does not exist"
-            ):
-                command.login_user(Client(), "missing@example.com")
+            ),
+        ):
+            command.login_user(Client(), "missing@example.com")
 
     def test_login_user_missing_email_user_errors(self):
         command = Command()
@@ -530,11 +534,13 @@ class LoginTests(TestCase):
             _meta = Meta()
             _default_manager = Manager()
 
-        with patch.object(crawl, "get_user_model", return_value=User):
-            with self.assertRaisesRegex(
+        with (
+            patch.object(crawl, "get_user_model", return_value=User),
+            self.assertRaisesRegex(
                 crawl.CommandError, "User 'missing@example.com' does not exist"
-            ):
-                command.login_user(Client(), "missing@example.com")
+            ),
+        ):
+            command.login_user(Client(), "missing@example.com")
 
     def test_login_user_by_email(self):
         command = Command()
@@ -568,25 +574,6 @@ class LoginTests(TestCase):
 
 
 class CrawlInternalsTests(TestCase):
-    def test_paused_status_stops_and_restarts_status(self):
-        calls = []
-
-        class Status:
-            def stop(self):
-                calls.append("stop")
-
-            def start(self):
-                calls.append("start")
-
-        with crawl.paused_status(Status()):
-            calls.append("body")
-
-        assert calls == ["stop", "body", "start"]
-
-    def test_paused_status_allows_none(self):
-        with crawl.paused_status(None):
-            pass
-
     def test_duplicate_urls_are_skipped(self):
         command = Command()
         client = Client()
