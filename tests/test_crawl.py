@@ -732,7 +732,7 @@ class StatusAwareStderrTests(TestCase):
             def flush(self):
                 flushed.append(True)
 
-            def write(self, data):
+            def write(self, data):  # pragma: no cover
                 return len(data)
 
         real = sys.stderr
