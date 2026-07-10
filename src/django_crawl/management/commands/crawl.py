@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import sys
+import warnings
 from argparse import ArgumentParser
 from collections import deque
 from collections.abc import Iterator
@@ -88,16 +89,69 @@ def pluralize(count: int, singular: str, plural: str) -> str:
 
 
 @contextmanager
-def paused_status(status: Any) -> Iterator[None]:
-    stop = getattr(status, "stop", None)
-    start = getattr(status, "start", None)
-    if stop is not None:
-        stop()
+def status_aware_stderr(status: Any) -> Iterator[None]:
+    real_stderr = sys.stderr
+    _pausing = False
+
+    def _pause_status(fn: Any, *args: Any, **kwargs: Any) -> Any:
+        nonlocal _pausing
+        if _pausing:
+            return fn(*args, **kwargs)
+        _pausing = True
+        stop = getattr(status, "stop", None)
+        start = getattr(status, "start", None)
+        if stop is not None:
+            stop()
+        try:
+            return fn(*args, **kwargs)
+        finally:
+            _pausing = False
+            if start is not None:
+                start()
+
+    class _Stream:
+        def write(self, data: str) -> int:
+            return _pause_status(real_stderr.write, data)  # type: ignore[return-value]
+
+        def flush(self) -> None:
+            real_stderr.flush()
+
+        def __getattr__(self, name: str) -> Any:
+            return getattr(real_stderr, name)
+
+    sys.stderr = _Stream()  # type: ignore[assignment]
+
+    original_emit = logging.StreamHandler.emit
+
+    def _emit(
+        handler_self: logging.StreamHandler[Any], record: logging.LogRecord
+    ) -> None:
+        _pause_status(original_emit, handler_self, record)
+
+    logging.StreamHandler.emit = _emit  # type: ignore[method-assign]
+
+    original_showwarning = warnings.showwarning
+
+    def _showwarning(
+        message: Warning | str,
+        category: type[Warning],
+        filename: str,
+        lineno: int,
+        file: Any = None,
+        line: str | None = None,
+    ) -> None:
+        _pause_status(
+            original_showwarning, message, category, filename, lineno, file, line
+        )
+
+    warnings.showwarning = _showwarning
+
     try:
         yield
     finally:
-        if start is not None:
-            start()
+        sys.stderr = real_stderr
+        logging.StreamHandler.emit = original_emit  # type: ignore[method-assign]
+        warnings.showwarning = original_showwarning
 
 
 class PassthroughStream:
@@ -213,6 +267,8 @@ class Command(RichCommand):
             django_request_logger.addFilter(log_filter)
             stack.callback(django_request_logger.removeFilter, log_filter)
             stack.enter_context(status)
+            if self.console.is_terminal:
+                stack.enter_context(status_aware_stderr(status))
             allowed_hosts = (
                 (http_host, *settings.ALLOWED_HOSTS)
                 if http_host
@@ -225,7 +281,6 @@ class Command(RichCommand):
                 max_pages,
                 max_query_variants,
                 code,
-                status,
                 allowed_hosts,
                 verbosity=verbosity,
             )
@@ -319,7 +374,6 @@ class Command(RichCommand):
         max_pages: int,
         max_query_variants: int | None,
         code: str | None,
-        status: Any = None,
         allowed_hosts: tuple[str, ...] = (),
         verbosity: int = 1,
     ) -> CrawlResult:
@@ -340,10 +394,9 @@ class Command(RichCommand):
             seen.add(item.url)
 
             try:
-                with paused_status(status):
-                    if verbosity >= 2:
-                        self.console.print(item.url)
-                    response = client.get(item.url)
+                if verbosity >= 2:
+                    self.console.print(item.url)
+                response = client.get(item.url)
             except Exception:
                 error = CrawlError(
                     url=item.url,
@@ -351,8 +404,7 @@ class Command(RichCommand):
                     exc_info=sys.exc_info(),
                 )
                 errors.append(error)
-                with paused_status(status):
-                    self.report_error(self.console, error)
+                self.report_error(self.console, error)
                 continue
 
             if response.status_code in (301, 302, 303, 307, 308):
@@ -367,24 +419,19 @@ class Command(RichCommand):
             if response.status_code >= 400:
                 error = self.status_error(item.url, response)
                 errors.append(error)
-                with paused_status(status):
-                    self.report_error(self.console, error)
+                self.report_error(self.console, error)
 
             if code is not None:
-                with paused_status(status):
-                    error = self.run_response_code(
-                        code, code_namespace, response, item.url
-                    )
+                error = self.run_response_code(code, code_namespace, response, item.url)
                 if error is not None:
                     errors.append(error)
-                    with paused_status(status):
-                        self.report_error(self.console, error)
+                    self.report_error(self.console, error)
 
             if item.depth >= depth or not is_html(response):
                 continue
-
             for href in extract_links(response):
                 linked_url = normalize_url(urljoin(item.url, href), allowed_hosts)
+
                 if linked_url is not None and linked_url not in seen:
                     queue.append(QueueItem(linked_url, item.depth + 1))
 

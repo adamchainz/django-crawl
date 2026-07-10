@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import logging
 import sys
+import warnings
+from contextlib import nullcontext
 from io import StringIO
-from unittest.mock import patch
+from unittest.mock import PropertyMock, patch
 
+import pytest
 from django.test import Client, TestCase, override_settings
 from rich.console import Console
 
@@ -486,11 +490,13 @@ class LoginTests(TestCase):
             USERNAME_FIELD = "email"
             _default_manager = Manager()
 
-        with patch.object(crawl, "get_user_model", return_value=User):
-            with self.assertRaisesRegex(
+        with (
+            patch.object(crawl, "get_user_model", return_value=User),
+            self.assertRaisesRegex(
                 crawl.CommandError, "User 'missing@example.com' does not exist"
-            ):
-                command.login_user(Client(), "missing@example.com")
+            ),
+        ):
+            command.login_user(Client(), "missing@example.com")
 
     def test_login_user_missing_email_field_errors(self):
         command = Command()
@@ -508,11 +514,13 @@ class LoginTests(TestCase):
             _meta = Meta()
             _default_manager = Manager()
 
-        with patch.object(crawl, "get_user_model", return_value=User):
-            with self.assertRaisesRegex(
+        with (
+            patch.object(crawl, "get_user_model", return_value=User),
+            self.assertRaisesRegex(
                 crawl.CommandError, "User 'missing@example.com' does not exist"
-            ):
-                command.login_user(Client(), "missing@example.com")
+            ),
+        ):
+            command.login_user(Client(), "missing@example.com")
 
     def test_login_user_missing_email_user_errors(self):
         command = Command()
@@ -530,11 +538,13 @@ class LoginTests(TestCase):
             _meta = Meta()
             _default_manager = Manager()
 
-        with patch.object(crawl, "get_user_model", return_value=User):
-            with self.assertRaisesRegex(
+        with (
+            patch.object(crawl, "get_user_model", return_value=User),
+            self.assertRaisesRegex(
                 crawl.CommandError, "User 'missing@example.com' does not exist"
-            ):
-                command.login_user(Client(), "missing@example.com")
+            ),
+        ):
+            command.login_user(Client(), "missing@example.com")
 
     def test_login_user_by_email(self):
         command = Command()
@@ -568,25 +578,6 @@ class LoginTests(TestCase):
 
 
 class CrawlInternalsTests(TestCase):
-    def test_paused_status_stops_and_restarts_status(self):
-        calls = []
-
-        class Status:
-            def stop(self):
-                calls.append("stop")
-
-            def start(self):
-                calls.append("start")
-
-        with crawl.paused_status(Status()):
-            calls.append("body")
-
-        assert calls == ["stop", "body", "start"]
-
-    def test_paused_status_allows_none(self):
-        with crawl.paused_status(None):
-            pass
-
     def test_duplicate_urls_are_skipped(self):
         command = Command()
         client = Client()
@@ -636,3 +627,145 @@ class CrawlInternalsTests(TestCase):
         assert result.errors[0].url == "/"
         assert result.errors[0].message == "HTTP 500 Internal Server Error"
         assert result.errors[0].exc_info is not None
+
+
+class StatusAwareStderrTests(TestCase):
+    def test_replaces_and_restores_sys_stderr(self):
+        real = sys.stderr
+        with crawl.status_aware_stderr(None):
+            assert sys.stderr is not real
+        assert sys.stderr is real
+
+    def test_patches_and_restores_streamhandler_emit(self):
+        original = logging.StreamHandler.emit
+        with crawl.status_aware_stderr(None):
+            assert logging.StreamHandler.emit is not original
+        assert logging.StreamHandler.emit is original
+
+    def test_patches_and_restores_showwarning(self):
+        original = warnings.showwarning
+        with crawl.status_aware_stderr(None):
+            assert warnings.showwarning is not original
+        assert warnings.showwarning is original
+
+    def test_stderr_write_pauses_status(self):
+        calls = []
+
+        class Status:
+            def stop(self):
+                calls.append("stop")
+
+            def start(self):
+                calls.append("start")
+
+        real = sys.stderr
+        sys.stderr = StringIO()
+        try:
+            with crawl.status_aware_stderr(Status()):
+                sys.stderr.write("hello")
+        finally:
+            sys.stderr = real
+
+        assert calls == ["stop", "start"]
+
+    def test_emit_pauses_status(self):
+        calls = []
+
+        class Status:
+            def stop(self):
+                calls.append("stop")
+
+            def start(self):
+                calls.append("start")
+
+        handler = logging.StreamHandler(StringIO())
+        record = logging.LogRecord("test", logging.WARNING, "", 0, "msg", (), None)
+        with crawl.status_aware_stderr(Status()):
+            handler.emit(record)
+
+        assert calls == ["stop", "start"]
+
+    def test_showwarning_pauses_status(self):
+        calls = []
+
+        class Status:
+            def stop(self):
+                calls.append("stop")
+
+            def start(self):
+                calls.append("start")
+
+        with (
+            pytest.warns(UserWarning, match="msg"),
+            crawl.status_aware_stderr(Status()),
+        ):
+            warnings.warn("msg", UserWarning, stacklevel=2)
+
+        assert calls == ["stop", "start"]
+
+    def test_pausing_guard_prevents_double_pause(self):
+        calls = []
+
+        class Status:
+            def stop(self):
+                calls.append("stop")
+
+            def start(self):
+                calls.append("start")
+
+        real = sys.stderr
+        sys.stderr = StringIO()
+        try:
+            with crawl.status_aware_stderr(Status()):
+                handler = logging.StreamHandler(sys.stderr)
+                record = logging.LogRecord("t", logging.WARNING, "", 0, "m", (), None)
+                handler.emit(record)
+        finally:
+            sys.stderr = real
+
+        assert calls == ["stop", "start"]
+
+    def test_stream_flush_delegates_to_real_stderr(self):
+        flushed = []
+
+        class FakeStream:
+            def flush(self):
+                flushed.append(True)
+
+            def write(self, data):  # pragma: no cover
+                return len(data)
+
+        real = sys.stderr
+        sys.stderr = FakeStream()
+        try:
+            with crawl.status_aware_stderr(None):
+                sys.stderr.flush()
+        finally:
+            sys.stderr = real
+
+        assert flushed == [True]
+
+    def test_stream_proxies_attributes_to_real_stderr(self):
+        real_encoding = sys.stderr.encoding
+        with crawl.status_aware_stderr(None):
+            assert sys.stderr.encoding == real_encoding
+
+    def test_pause_with_null_status_does_not_raise(self):
+        real = sys.stderr
+        sys.stderr = StringIO()
+        try:
+            with crawl.status_aware_stderr(None):
+                sys.stderr.write("hello")
+        finally:
+            sys.stderr = real
+
+    def test_entered_when_console_is_terminal(self):
+        with (
+            patch.object(
+                Console, "is_terminal", new_callable=PropertyMock, return_value=True
+            ),
+            patch.object(Console, "status", return_value=nullcontext()),
+        ):
+            out, err, returncode = run_command("crawl", "/ok/", "--depth", "0")
+
+        assert returncode == 0
