@@ -14,6 +14,7 @@ from contextlib import (
     redirect_stdout,
 )
 from dataclasses import dataclass
+from enum import Enum
 from functools import partial
 from types import TracebackType
 from typing import Any
@@ -36,6 +37,14 @@ from django_crawl.ext.argparse import (
 )
 from django_crawl.ext.argparse import non_negative_int, positive_int
 from django_crawl.ext.html import extract_links, is_html
+
+if sys.version_info >= (3, 11):
+    from typing import assert_never
+else:
+
+    def assert_never(value: Any) -> None:
+        raise AssertionError(f"Expected code to be unreachable, but got: {value!r}")
+
 
 DEFAULT_DEPTH = 5
 DEFAULT_MAX_PAGES = 1000
@@ -61,10 +70,16 @@ class CrawlError:
     )
 
 
+class StopReason(Enum):
+    NO_MORE_LINKS = "no_more_links"
+    MAX_PAGES = "max_pages"
+
+
 @dataclass
 class CrawlResult:
     count: int
     errors: list[CrawlError]
+    stop_reason: StopReason
 
 
 class SuppressDjangoRequestLogs(logging.Filter):
@@ -244,12 +259,17 @@ class Command(RichCommand):
         verbosity: int = options["verbosity"]
 
         client = Client(HTTP_HOST=TESTSERVER)
-        self.configure_client(client, options)
+        user = self.configure_client(client, options)
+
+        start_message = f"🐛 Crawling up to {pluralize(max_pages, 'URL', 'URLs')}"
+        if user is not None:
+            start_message += f", logged in as {user}"
+        self.console.print(start_message, soft_wrap=True)
 
         django_request_logger = logging.getLogger("django.request")
         log_filter = SuppressDjangoRequestLogs()
         status: Any = (
-            self.console.status("Crawling site…")
+            self.console.status("Crawling URL 1…")
             if self.console.is_terminal
             else nullcontext()
         )
@@ -286,15 +306,24 @@ class Command(RichCommand):
                 code,
                 allowed_hosts,
                 verbosity=verbosity,
+                status=status,
             )
 
+        match result.stop_reason:
+            case StopReason.MAX_PAGES:
+                reason = f"reaching max page limit of {max_pages}"
+            case StopReason.NO_MORE_LINKS:
+                reason = "finding no more links"
+            case _:  # pragma: no cover
+                assert_never(result.stop_reason)
+        self.console.print(
+            f"🦋 Crawled {pluralize(result.count, 'URL', 'URLs')}, "
+            f"encountered {pluralize(len(result.errors), 'error', 'errors')}, "
+            f"stopped due to {reason}.",
+            soft_wrap=True,
+        )
         if result.errors:
-            self.console.print(
-                f"Found {pluralize(len(result.errors), 'error', 'errors')}."
-            )
-            self.console.print(f"Crawled {pluralize(result.count, 'URL', 'URLs')}.")
             raise SystemExit(1)
-        self.console.print(f"Crawled {pluralize(result.count, 'URL', 'URLs')}.")
 
     def start_urls(self, urls: list[str]) -> list[str]:
         if urls:
@@ -310,17 +339,21 @@ class Command(RichCommand):
             normalized.append(normalized_url)
         return normalized
 
-    def configure_client(self, client: Client, options: dict[str, Any]) -> None:
+    def configure_client(self, client: Client, options: dict[str, Any]) -> Any:
         namespace = self.setup_namespace(client)
 
         login = options["login"]
         if login is not None:
-            self.login_user(client, login)
+            user: Any = self.login_user(client, login)
         elif not options["no_login"]:
-            self.login_superuser(client)
+            user = self.login_superuser(client)
+        else:
+            user = None
 
         for code in options["setup_code"]:
             exec(code, namespace, namespace)
+
+        return user
 
     def setup_namespace(self, client: Client) -> dict[str, Any]:
         namespace = {
@@ -332,9 +365,9 @@ class Command(RichCommand):
             namespace["User"] = get_user_model()
         return namespace
 
-    def login_superuser(self, client: Client) -> None:
+    def login_superuser(self, client: Client) -> Any:
         if not auth_installed():
-            return
+            return None
         User = get_user_model()
         user = (
             User._default_manager.filter(is_active=True, is_superuser=True)
@@ -343,8 +376,9 @@ class Command(RichCommand):
         )
         if user is not None:
             client.force_login(user)
+        return user
 
-    def login_user(self, client: Client, username_or_email: str) -> None:
+    def login_user(self, client: Client, username_or_email: str) -> Any:
         if not auth_installed():
             raise CommandError(
                 "Cannot use --login: 'django.contrib.auth' is not installed."
@@ -356,6 +390,7 @@ class Command(RichCommand):
         except ObjectDoesNotExist:
             user = self.get_user_by_email(User, username_or_email)
         client.force_login(user)
+        return user
 
     def get_user_by_email(self, User: Any, email: str) -> Any:
         if User.USERNAME_FIELD == "email":
@@ -379,12 +414,14 @@ class Command(RichCommand):
         code: str | None,
         allowed_hosts: tuple[str, ...] = (),
         verbosity: int = 1,
+        status: Any = None,
     ) -> CrawlResult:
         queue = deque(QueueItem(url, 0) for url in start_urls)
         seen: set[str] = set()
         query_variants: dict[str, set[str]] = {}
         errors: list[CrawlError] = []
         code_namespace: dict[str, Any] = {}
+        update_status = getattr(status, "update", None)
 
         while queue and len(seen) < max_pages:
             item = queue.popleft()
@@ -395,6 +432,8 @@ class Command(RichCommand):
             ):
                 continue
             seen.add(item.url)
+            if update_status is not None:
+                update_status(f"Crawling URL {len(seen)}…")
 
             try:
                 if verbosity >= 2:
@@ -441,7 +480,12 @@ class Command(RichCommand):
                 if linked_url is not None and linked_url not in seen:
                     queue.append(QueueItem(linked_url, item.depth + 1))
 
-        return CrawlResult(count=len(seen), errors=errors)
+        stop_reason = (
+            StopReason.MAX_PAGES
+            if queue and len(seen) >= max_pages
+            else StopReason.NO_MORE_LINKS
+        )
+        return CrawlResult(count=len(seen), errors=errors, stop_reason=stop_reason)
 
     def allow_query_variant(
         self,
