@@ -329,7 +329,7 @@ class LoginTests(TestCase):
     def test_configure_client_logs_in_default_superuser(self):
         command = Command()
         client = Client()
-        options = {
+        options: dict[str, object] = {
             "setup_code": [],
             "login": None,
             "no_login": False,
@@ -343,7 +343,7 @@ class LoginTests(TestCase):
     def test_configure_client_skips_login_with_no_login(self):
         command = Command()
         client = Client()
-        options = {
+        options: dict[str, object] = {
             "setup_code": [],
             "login": None,
             "no_login": True,
@@ -377,7 +377,7 @@ class LoginTests(TestCase):
         command = Command()
         client = Client()
         user = object()
-        force_login_calls = []
+        force_login_calls: list[object] = []
 
         class QuerySet:
             def filter(self, **kwargs):
@@ -406,7 +406,7 @@ class LoginTests(TestCase):
     def test_login_superuser_ignores_missing_user(self):
         command = Command()
         client = Client()
-        force_login_calls = []
+        force_login_calls: list[object] = []
 
         class QuerySet:
             def filter(self, **kwargs):
@@ -433,7 +433,7 @@ class LoginTests(TestCase):
     def test_login_superuser_without_auth_installed(self):
         command = Command()
         client = Client()
-        force_login_calls = []
+        force_login_calls: list[object] = []
 
         with (
             override_settings(INSTALLED_APPS=["django_crawl"]),
@@ -460,7 +460,7 @@ class LoginTests(TestCase):
         command = Command()
         client = Client()
         user = object()
-        force_login_calls = []
+        force_login_calls: list[object] = []
 
         class Manager:
             def get(self, **kwargs):
@@ -550,7 +550,7 @@ class LoginTests(TestCase):
         command = Command()
         client = Client()
         user = object()
-        force_login_calls = []
+        force_login_calls: list[object] = []
 
         class Meta:
             def get_field(self, name):
@@ -729,10 +729,10 @@ class StatusAwareStderrTests(TestCase):
         flushed = []
 
         class FakeStream:
-            def flush(self):
+            def flush(self) -> None:
                 flushed.append(True)
 
-            def write(self, data):  # pragma: no cover
+            def write(self, data: str) -> int:  # pragma: no cover
                 return len(data)
 
         real = sys.stderr

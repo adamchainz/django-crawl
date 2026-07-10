@@ -26,14 +26,7 @@ def extract_links(response: HttpResponseBase) -> list[str]:
         if refresh_url:
             links.append(refresh_url)
 
-    if response.streaming:
-        content_bytes = b"".join(
-            c if isinstance(c, bytes) else c.encode(response.charset or "utf-8")
-            for c in response.streaming_content  # type: ignore[union-attr]
-        )
-    else:
-        content_bytes = response.content
-    content = content_bytes.decode(response.charset or "utf-8", errors="replace")
+    content = response.getvalue().decode(response.charset or "utf-8", errors="replace")
     document = JustHTML(content, sanitize=False)
 
     base_href = ""
