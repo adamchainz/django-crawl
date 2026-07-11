@@ -42,7 +42,7 @@ if sys.version_info >= (3, 11):
     from typing import assert_never
 else:
 
-    def assert_never(value: Any) -> None:
+    def assert_never(value: Any) -> None:  # pragma: no cover
         raise AssertionError(f"Expected code to be unreachable, but got: {value!r}")
 
 
