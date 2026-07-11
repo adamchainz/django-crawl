@@ -12,7 +12,7 @@ from django.test import Client, TestCase, override_settings
 from rich.console import Console
 
 from django_crawl.management.commands import crawl
-from django_crawl.management.commands.crawl import Command
+from django_crawl.management.commands.crawl import Command, CrawlResult, StopReason
 from tests.utils import run_command
 
 
@@ -20,7 +20,11 @@ class CrawlCommandTests(TestCase):
     def test_depth_zero_does_not_follow_links(self):
         out, err, returncode = run_command("crawl", "/ok/", "--depth", "0")
 
-        assert out == "Crawled 1 URL.\n"
+        assert out == (
+            "🐛 Crawling up to 1000 URLs\n"
+            "🦋 Crawled 1 URL, encountered 0 errors, "
+            "stopped due to finding no more links.\n"
+        )
         assert err == ""
         assert returncode == 0
 
@@ -28,7 +32,7 @@ class CrawlCommandTests(TestCase):
         out, err, returncode = run_command("crawl", "/", "--depth", "1")
 
         assert returncode == 1
-        assert "Crawled 5 URLs" in out
+        assert "🐛 Crawling up to 1000 URLs\n" in out
         assert "URL: /bad/" in out
         assert "HTTP 400 Bad Request" in out
         assert "URL: /not-found/" in out
@@ -36,7 +40,10 @@ class CrawlCommandTests(TestCase):
         assert "URL: /server-error/" in out
         assert "HTTP 500 Internal Server Error" in out
         assert "ValueError: broken" in out
-        assert "Found 3 errors." in out
+        assert (
+            "🦋 Crawled 5 URLs, encountered 3 errors, "
+            "stopped due to finding no more links."
+        ) in out
         assert err == ""
 
     def test_crawl_follows_redirects(self):
@@ -49,7 +56,12 @@ class CrawlCommandTests(TestCase):
             "print(response.wsgi_request.path)",
         )
 
-        assert out == "/target/\nCrawled 2 URLs.\n"
+        assert out == (
+            "🐛 Crawling up to 1000 URLs\n"
+            "/target/\n"
+            "🦋 Crawled 2 URLs, encountered 0 errors, "
+            "stopped due to finding no more links.\n"
+        )
         assert err == ""
         assert returncode == 0
 
@@ -58,7 +70,11 @@ class CrawlCommandTests(TestCase):
             "crawl", "/redirect-external/", "--depth", "0"
         )
 
-        assert out == "Crawled 1 URL.\n"
+        assert out == (
+            "🐛 Crawling up to 1000 URLs\n"
+            "🦋 Crawled 1 URL, encountered 0 errors, "
+            "stopped due to finding no more links.\n"
+        )
         assert err == ""
         assert returncode == 0
 
@@ -67,7 +83,11 @@ class CrawlCommandTests(TestCase):
             "crawl", "/redirect-no-location/", "--depth", "0"
         )
 
-        assert out == "Crawled 1 URL.\n"
+        assert out == (
+            "🐛 Crawling up to 1000 URLs\n"
+            "🦋 Crawled 1 URL, encountered 0 errors, "
+            "stopped due to finding no more links.\n"
+        )
         assert err == ""
         assert returncode == 0
 
@@ -81,7 +101,12 @@ class CrawlCommandTests(TestCase):
             "print(response.wsgi_request.path)",
         )
 
-        assert out == "/nested/page/\n/target/\nCrawled 2 URLs.\n"
+        assert out == (
+            "🐛 Crawling up to 1000 URLs\n"
+            "/nested/page/\n/target/\n"
+            "🦋 Crawled 2 URLs, encountered 0 errors, "
+            "stopped due to finding no more links.\n"
+        )
         assert err == ""
         assert returncode == 0
 
@@ -95,7 +120,12 @@ class CrawlCommandTests(TestCase):
             "print(response.wsgi_request.path)",
         )
 
-        assert out == "/streaming/\n/ok/\nCrawled 2 URLs.\n"
+        assert out == (
+            "🐛 Crawling up to 1000 URLs\n"
+            "/streaming/\n/ok/\n"
+            "🦋 Crawled 2 URLs, encountered 0 errors, "
+            "stopped due to finding no more links.\n"
+        )
         assert err == ""
         assert returncode == 0
 
@@ -109,7 +139,12 @@ class CrawlCommandTests(TestCase):
             "print(response.status_code, response.wsgi_request.path)",
         )
 
-        assert out == "200 /ok/\n200 /deep/\nCrawled 2 URLs.\n"
+        assert out == (
+            "🐛 Crawling up to 1000 URLs\n"
+            "200 /ok/\n200 /deep/\n"
+            "🦋 Crawled 2 URLs, encountered 0 errors, "
+            "stopped due to finding no more links.\n"
+        )
         assert err == ""
         assert returncode == 0
 
@@ -124,10 +159,13 @@ class CrawlCommandTests(TestCase):
         )
 
         assert returncode == 1
-        assert "Crawled 1 URL" in out
+        assert "🐛 Crawling up to 1000 URLs\n" in out
         assert "Response code raised an exception." in out
         assert "ValueError: check failed" in out
-        assert "Found 1 error." in out
+        assert (
+            "🦋 Crawled 1 URL, encountered 1 error, "
+            "stopped due to finding no more links."
+        ) in out
         assert err == ""
 
     def test_crawl_setup_code_can_configure_client(self):
@@ -140,7 +178,11 @@ class CrawlCommandTests(TestCase):
             "client.defaults['HTTP_X_SETUP'] = '1'",
         )
 
-        assert out == "Crawled 1 URL.\n"
+        assert out == (
+            "🐛 Crawling up to 1000 URLs\n"
+            "🦋 Crawled 1 URL, encountered 0 errors, "
+            "stopped due to finding no more links.\n"
+        )
         assert err == ""
         assert returncode == 0
 
@@ -154,7 +196,11 @@ class CrawlCommandTests(TestCase):
             "client.defaults['HTTP_HOST'] = 'docs.example.com'",
         )
 
-        assert out == "Crawled 1 URL.\n"
+        assert out == (
+            "🐛 Crawling up to 1000 URLs\n"
+            "🦋 Crawled 1 URL, encountered 0 errors, "
+            "stopped due to finding no more links.\n"
+        )
         assert err == ""
         assert returncode == 0
 
@@ -167,7 +213,12 @@ class CrawlCommandTests(TestCase):
             "print(response.wsgi_request.path)",
         )
 
-        assert out == "/\nCrawled 1 URL.\n"
+        assert out == (
+            "🐛 Crawling up to 1000 URLs\n"
+            "/\n"
+            "🦋 Crawled 1 URL, encountered 0 errors, "
+            "stopped due to finding no more links.\n"
+        )
         assert err == ""
         assert returncode == 0
 
@@ -182,8 +233,10 @@ class CrawlCommandTests(TestCase):
         out, err, returncode = run_command("crawl", "/needs-setup/", "--depth", "0")
 
         assert "HTTP 403 Forbidden" in out
-        assert "Found 1 error." in out
-        assert "Crawled 1 URL." in out
+        assert (
+            "🦋 Crawled 1 URL, encountered 1 error, "
+            "stopped due to finding no more links."
+        ) in out
         assert err == ""
         assert returncode == 1
 
@@ -191,8 +244,10 @@ class CrawlCommandTests(TestCase):
         out, err, returncode = run_command("crawl", "/needs-host/", "--depth", "0")
 
         assert "HTTP 403 Forbidden" in out
-        assert "Found 1 error." in out
-        assert "Crawled 1 URL." in out
+        assert (
+            "🦋 Crawled 1 URL, encountered 1 error, "
+            "stopped due to finding no more links."
+        ) in out
         assert err == ""
         assert returncode == 1
 
@@ -200,7 +255,11 @@ class CrawlCommandTests(TestCase):
     def test_wildcard_allowed_hosts_skips_override(self):
         out, err, returncode = run_command("crawl", "/ok/", "--depth", "0")
 
-        assert out == "Crawled 1 URL.\n"
+        assert out == (
+            "🐛 Crawling up to 1000 URLs\n"
+            "🦋 Crawled 1 URL, encountered 0 errors, "
+            "stopped due to finding no more links.\n"
+        )
         assert err == ""
         assert returncode == 0
 
@@ -220,9 +279,56 @@ class CrawlCommandTests(TestCase):
             "crawl", "/ok/", "--depth", "0", "--verbosity", "2"
         )
 
-        assert out == "/ok/\nCrawled 1 URL.\n"
+        assert out == (
+            "🐛 Crawling up to 1000 URLs\n"
+            "/ok/\n"
+            "🦋 Crawled 1 URL, encountered 0 errors, "
+            "stopped due to finding no more links.\n"
+        )
         assert err == ""
         assert returncode == 0
+
+    def test_start_message_includes_max_pages(self):
+        out, _err, returncode = run_command(
+            "crawl", "/ok/", "--depth", "0", "--max-pages", "5"
+        )
+
+        assert returncode == 0
+        lines = out.splitlines()
+        assert lines[0] == "🐛 Crawling up to 5 URLs"
+
+    def test_start_message_includes_logged_in_user(self):
+        class FakeUser:
+            def __str__(self) -> str:
+                return "alice"
+
+        user = FakeUser()
+
+        with (
+            patch.object(Command, "login_superuser", return_value=user),
+            patch.object(
+                Command,
+                "crawl",
+                return_value=CrawlResult(0, [], StopReason.NO_MORE_LINKS),
+            ),
+        ):
+            out, _err, returncode = run_command("crawl", "/ok/", "--depth", "0")
+
+        assert returncode == 0
+        lines = out.splitlines()
+        assert lines[0] == "🐛 Crawling up to 1000 URLs, logged in as alice"
+
+    def test_stops_at_max_pages_limit(self):
+        out, _err, returncode = run_command(
+            "crawl", "/", "--depth", "5", "--max-pages", "1"
+        )
+
+        assert returncode == 0
+        lines = out.splitlines()
+        assert lines[-1] == (
+            "🦋 Crawled 1 URL, encountered 0 errors, "
+            "stopped due to reaching max page limit of 1."
+        )
 
 
 class ParserTests(TestCase):
@@ -611,6 +717,22 @@ class CrawlInternalsTests(TestCase):
 
         assert command.allow_query_variant("/path/?a=1", query_variants, 1)
         assert not command.allow_query_variant("/path/?a=2", query_variants, 1)
+
+    def test_crawl_updates_status_per_url(self):
+        command = Command()
+        client = Client()
+        updates: list[str] = []
+
+        class Status:
+            def update(self, text: str) -> None:
+                updates.append(text)
+
+        result = command.crawl(
+            client, ["/ok/", "/target/"], 0, 10, 10, None, status=Status()
+        )
+
+        assert result.count == 2
+        assert updates == ["Crawling URL 1…", "Crawling URL 2…"]
 
     def test_client_request_exception_is_reported(self):
         command = Command()
