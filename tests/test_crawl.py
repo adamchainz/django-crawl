@@ -294,7 +294,8 @@ class CrawlCommandTests(TestCase):
         )
 
         assert returncode == 0
-        assert "🐛 Crawling up to 5 URLs\n" in out
+        lines = out.splitlines()
+        assert lines[0] == "🐛 Crawling up to 5 URLs"
 
     def test_start_message_includes_logged_in_user(self):
         class FakeUser:
@@ -314,7 +315,8 @@ class CrawlCommandTests(TestCase):
             out, _err, returncode = run_command("crawl", "/ok/", "--depth", "0")
 
         assert returncode == 0
-        assert "🐛 Crawling up to 1000 URLs, logged in as alice\n" in out
+        lines = out.splitlines()
+        assert lines[0] == "🐛 Crawling up to 1000 URLs, logged in as alice"
 
     def test_stops_at_max_pages_limit(self):
         out, _err, returncode = run_command(
@@ -322,10 +324,11 @@ class CrawlCommandTests(TestCase):
         )
 
         assert returncode == 0
-        assert (
+        lines = out.splitlines()
+        assert lines[-1] == (
             "🦋 Crawled 1 URL, encountered 0 errors, "
             "stopped due to reaching max page limit of 1."
-        ) in out
+        )
 
 
 class ParserTests(TestCase):
