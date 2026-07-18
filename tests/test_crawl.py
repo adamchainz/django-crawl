@@ -78,6 +78,17 @@ class CrawlCommandTests(TestCase):
         assert err == ""
         assert returncode == 0
 
+    def test_crawl_stops_on_redirect_loop(self):
+        out, err, returncode = run_command("crawl", "/redirect-loop-a/", "--depth", "0")
+
+        assert out == (
+            "🐛 Crawling up to 1000 URLs\n"
+            "🦋 Crawled 2 URLs, encountered 0 errors, "
+            "stopped due to finding no more links.\n"
+        )
+        assert err == ""
+        assert returncode == 0
+
     def test_crawl_handles_redirect_without_location(self):
         out, err, returncode = run_command(
             "crawl", "/redirect-no-location/", "--depth", "0"

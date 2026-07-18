@@ -60,6 +60,14 @@ def redirect_no_location(request: HttpRequest) -> HttpResponse:
     return HttpResponse(status=302)
 
 
+def redirect_loop_a(request: HttpRequest) -> HttpResponse:
+    return redirect("/redirect-loop-b/")
+
+
+def redirect_loop_b(request: HttpRequest) -> HttpResponse:
+    return redirect("/redirect-loop-a/")
+
+
 def target(request: HttpRequest) -> HttpResponse:
     return HttpResponse("target")
 
@@ -98,6 +106,8 @@ urlpatterns = [
     path("redirect/", redirect_view),
     path("redirect-external/", redirect_external),
     path("redirect-no-location/", redirect_no_location),
+    path("redirect-loop-a/", redirect_loop_a),
+    path("redirect-loop-b/", redirect_loop_b),
     path("target/", target),
     path("nested/page/", nested_page),
     path("needs-setup/", needs_setup),
