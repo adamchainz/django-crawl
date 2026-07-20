@@ -111,7 +111,8 @@ For example, to audit all URLs’ ``content-security-policy`` headers:
 
     $ ./manage.py crawl -c 'print(response.wsgi_request.path, response.headers.get("Content-Security-Policy", ""))'
 
-The code namespace persists between responses, so it can accumulate state.
+The code runs in the same namespace as ``--setup-code``, so ``client``, ``settings``, and any state set up before crawling are also available.
+The namespace persists between responses, so it can accumulate state.
 If the code raises an exception, the command reports the URL and traceback, then continues crawling.
 
 Setup
