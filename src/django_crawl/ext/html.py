@@ -26,7 +26,12 @@ def extract_links(response: HttpResponseBase) -> list[str]:
         if refresh_url:
             links.append(refresh_url)
 
-    content = response.getvalue().decode(response.charset or "utf-8", errors="replace")
+    raw = response.getvalue()
+    if getattr(response, "streaming", False):
+        # Reading consumed the streaming iterator; restore the content so
+        # later readers still see the body.
+        response.streaming_content = [raw]  # type: ignore[attr-defined]
+    content = raw.decode(response.charset or "utf-8", errors="replace")
     document = JustHTML(content, sanitize=False)
 
     base_href = ""
