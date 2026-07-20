@@ -24,6 +24,7 @@ from django.apps import apps
 from django.conf import settings as settings
 from django.contrib.auth import get_user_model as get_user_model
 from django.core.exceptions import FieldDoesNotExist as FieldDoesNotExist
+from django.core.exceptions import MultipleObjectsReturned as MultipleObjectsReturned
 from django.core.exceptions import ObjectDoesNotExist as ObjectDoesNotExist
 from django.core.management.base import CommandError as CommandError
 from django.http.request import validate_host
@@ -389,6 +390,11 @@ class Command(RichCommand):
             user = User._default_manager.get(**query)
         except ObjectDoesNotExist:
             user = self.get_user_by_email(User, username_or_email)
+        except MultipleObjectsReturned:
+            username_field: str = User.USERNAME_FIELD  # type: ignore[attr-defined]
+            raise CommandError(
+                f"Multiple users have {username_field} {username_or_email!r}."
+            ) from None
         client.force_login(user)
         return user
 
@@ -403,6 +409,8 @@ class Command(RichCommand):
             return User._default_manager.get(email=email)
         except ObjectDoesNotExist:
             raise CommandError(f"User {email!r} does not exist.") from None
+        except MultipleObjectsReturned:
+            raise CommandError(f"Multiple users have email {email!r}.") from None
 
     def crawl(
         self,
