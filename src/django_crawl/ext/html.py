@@ -56,6 +56,12 @@ def extract_links(response: HttpResponseBase) -> list[str]:
             if value:
                 links.append(resolve(value))
 
+    for el in document.query("img[srcset], source[srcset]"):
+        value = el.attrs.get("srcset")
+        if value:
+            for srcset_url in parse_srcset(value):
+                links.append(resolve(srcset_url))
+
     for form in document.query("form[action]"):
         # Non-GET forms would be requested with the wrong method, and GETting
         # their actions may trigger side effects, e.g. the admin logout form.
@@ -74,6 +80,16 @@ def extract_links(response: HttpResponseBase) -> list[str]:
             links.append(resolve(url))
 
     return links
+
+
+def parse_srcset(value: str) -> list[str]:
+    """Extract URLs from a ``srcset`` attribute value."""
+    urls = []
+    for candidate in value.split(","):
+        parts = candidate.split()
+        if parts:
+            urls.append(parts[0])
+    return urls
 
 
 _LINK_HEADER_URL_RE = re.compile(r"<([^>]*)>")

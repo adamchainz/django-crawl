@@ -9,6 +9,7 @@ from django_crawl.ext.html import (
     is_html,
     parse_link_header,
     parse_refresh,
+    parse_srcset,
 )
 
 
@@ -93,6 +94,28 @@ class ExtractLinksTests(SimpleTestCase):
             "/submit",
         ]
 
+    def test_srcset_urls(self):
+        response = HttpResponse(
+            '<img src="/a.png" srcset="/a-1x.png 1x, /a-2x.png 2x">'
+            '<picture><source srcset="/b.webp 100w"><img src="/b.png"></picture>'
+            '<img srcset="">',
+        )
+
+        assert extract_links(response) == [
+            "/a.png",
+            "/b.png",
+            "/a-1x.png",
+            "/a-2x.png",
+            "/b.webp",
+        ]
+
+    def test_srcset_resolves_base_href(self):
+        response = HttpResponse(
+            '<base href="/sub/"><img srcset="image.png 1x">',
+        )
+
+        assert extract_links(response) == ["/sub/image.png"]
+
     def test_form_actions_respect_method(self):
         response = HttpResponse(
             '<form action="/default/"></form>'
@@ -149,6 +172,21 @@ class ExtractLinksTests(SimpleTestCase):
         )
 
         assert extract_links(response) == ["/next", "/quoted"]
+
+
+class ParseSrcsetTests(ParametrizedTestCase, SimpleTestCase):
+    @parametrize(
+        ("value", "expected"),
+        [
+            ("", []),
+            ("/a.png", ["/a.png"]),
+            ("/a.png 1x, /b.png 2x", ["/a.png", "/b.png"]),
+            ("/a.png 100w,", ["/a.png"]),
+            (" , ", []),
+        ],
+    )
+    def test_parse_srcset(self, value, expected):
+        assert parse_srcset(value) == expected
 
 
 class ParseLinkHeaderTests(ParametrizedTestCase, SimpleTestCase):
