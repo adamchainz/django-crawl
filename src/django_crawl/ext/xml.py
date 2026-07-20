@@ -4,7 +4,14 @@ from xml.etree import ElementTree
 
 from django.http import HttpResponseBase
 
-XML_MEDIA_TYPES = frozenset({"application/xml", "text/xml"})
+XML_MEDIA_TYPES = frozenset(
+    {
+        "application/xml",
+        "text/xml",
+        "application/rss+xml",
+        "application/atom+xml",
+    }
+)
 
 
 def is_xml(response: HttpResponseBase) -> bool:
@@ -24,13 +31,33 @@ def extract_links(response: HttpResponseBase) -> list[str]:
     except ElementTree.ParseError:
         return []
 
-    if local_name(root.tag) in ("urlset", "sitemapindex"):
+    root_name = local_name(root.tag)
+    if root_name in ("urlset", "sitemapindex"):
         return extract_text_links(root, "loc")
+    if root_name in ("rss", "feed"):
+        return extract_feed_links(root)
     return []
 
 
 def local_name(tag: str) -> str:
     return tag.rpartition("}")[2]
+
+
+def extract_feed_links(root: ElementTree.Element) -> list[str]:
+    # RSS link elements hold their URL as text; Atom link elements use an
+    # href attribute. Feeds may contain both, e.g. atom:link in RSS.
+    links = []
+    for el in root.iter():
+        if local_name(el.tag) != "link":
+            continue
+        if el.text:
+            text = el.text.strip()
+            if text:
+                links.append(text)
+        href = el.attrib.get("href")
+        if href:
+            links.append(href)
+    return links
 
 
 def extract_text_links(root: ElementTree.Element, name: str) -> list[str]:

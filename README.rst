@@ -102,7 +102,7 @@ Use `-v 2` (``--verbosity 2``) or higher to report each URL as it is crawled:
 
     $ ./manage.py crawl -v 2
 
-The command also extracts URLs from XML sitemaps and sitemap indexes, like those served by ``django.contrib.sitemaps``.
+The command also extracts URLs from XML sitemaps and sitemap indexes, like those served by ``django.contrib.sitemaps``, and from RSS and Atom feeds, like those served by ``django.contrib.syndication``.
 Crawl your sitemap to check that every page it lists renders:
 
 .. code-block:: console
