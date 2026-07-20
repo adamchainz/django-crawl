@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import sys
+import threading
 import warnings
 from argparse import ArgumentParser
 from collections import deque
@@ -110,23 +111,29 @@ def pluralize(count: int, singular: str, plural: str) -> str:
 @contextmanager
 def status_aware_stderr(status: Any) -> Iterator[None]:
     real_stderr = sys.stderr
-    _pausing = False
+    # The lock stops pauses interleaving when the crawled app writes from
+    # threads; the thread-local flag keeps re-entrant writes from
+    # double-pausing.
+    lock = threading.Lock()
+    local = threading.local()
 
     def _pause_status(fn: Any, *args: Any, **kwargs: Any) -> Any:
-        nonlocal _pausing
-        if _pausing:
+        if getattr(local, "pausing", False):
             return fn(*args, **kwargs)
-        _pausing = True
-        stop = getattr(status, "stop", None)
-        start = getattr(status, "start", None)
-        if stop is not None:
-            stop()
+        local.pausing = True
         try:
-            return fn(*args, **kwargs)
+            with lock:
+                stop = getattr(status, "stop", None)
+                start = getattr(status, "start", None)
+                if stop is not None:
+                    stop()
+                try:
+                    return fn(*args, **kwargs)
+                finally:
+                    if start is not None:
+                        start()
         finally:
-            _pausing = False
-            if start is not None:
-                start()
+            local.pausing = False
 
     class _Stream:
         def write(self, data: str) -> int:
