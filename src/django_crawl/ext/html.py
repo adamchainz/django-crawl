@@ -45,12 +45,21 @@ def extract_links(response: HttpResponseBase) -> list[str]:
         ("iframe[src]", "src"),
         ("script[src]", "src"),
         ("img[src]", "src"),
-        ("form[action]", "action"),
     ):
         for el in document.query(selector):
             value = el.attrs.get(attr)
             if value:
                 links.append(resolve(value))
+
+    for form in document.query("form[action]"):
+        # Non-GET forms would be requested with the wrong method, and GETting
+        # their actions may trigger side effects, e.g. the admin logout form.
+        method = form.attrs.get("method", "").strip().lower()
+        if method and method != "get":
+            continue
+        action = form.attrs.get("action")
+        if action:
+            links.append(resolve(action))
 
     for meta in document.query("meta[http-equiv]"):
         if meta.attrs.get("http-equiv", "").lower() != "refresh":

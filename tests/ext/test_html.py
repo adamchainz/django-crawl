@@ -93,6 +93,17 @@ class ExtractLinksTests(SimpleTestCase):
             "/submit",
         ]
 
+    def test_form_actions_respect_method(self):
+        response = HttpResponse(
+            '<form action="/default/"></form>'
+            '<form action="/search/" method="get"></form>'
+            '<form action="/upper/" method="GET"></form>'
+            '<form action="/logout/" method="post"></form>'
+            '<form action="" method="get"></form>',
+        )
+
+        assert extract_links(response) == ["/default/", "/search/", "/upper/"]
+
     def test_skips_empty_attribute_values(self):
         response = HttpResponse('<a href="">empty</a><a href="/ok">ok</a>')
 
