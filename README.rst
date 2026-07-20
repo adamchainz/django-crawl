@@ -96,6 +96,12 @@ Use ``--max-query-variants`` to change this limit, or ``unlimited`` to disable i
     $ ./manage.py crawl --max-query-variants 20
     $ ./manage.py crawl --max-query-variants unlimited
 
+Use `-v 2` (``--verbosity 2``) or higher to report each URL as it is crawled:
+
+.. code-block:: console
+
+    $ ./manage.py crawl -v 2
+
 The command follows redirects.
 Each response counts towards the ``--max-pages`` limit, including each redirect hop.
 It reports HTTP 400, 404, 500, and other 4xx/5xx responses, including Django exception tracebacks when available.
