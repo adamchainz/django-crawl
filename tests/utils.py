@@ -16,6 +16,6 @@ def run_command(*args: Any, **kwargs: Any) -> tuple[str, str, int | str | None]:
     except CommandError as exc:
         err.write(str(exc))
         returncode = 1
-    except SystemExit as exc:  # pragma: no cover
+    except SystemExit as exc:
         returncode = exc.code
     return out.getvalue(), err.getvalue(), returncode
