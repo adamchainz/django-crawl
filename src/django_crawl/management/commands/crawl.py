@@ -259,7 +259,8 @@ class Command(RichCommand):
         verbosity: int = options["verbosity"]
 
         client = Client(HTTP_HOST=TESTSERVER)
-        user = self.configure_client(client, options)
+        namespace = self.setup_namespace(client)
+        user = self.configure_client(client, options, namespace)
 
         start_message = f"🐛 Crawling up to {pluralize(max_pages, 'URL', 'URLs')}"
         if user is not None:
@@ -307,6 +308,7 @@ class Command(RichCommand):
                 allowed_hosts,
                 verbosity=verbosity,
                 status=status,
+                code_namespace=namespace,
             )
 
         match result.stop_reason:
@@ -339,9 +341,9 @@ class Command(RichCommand):
             normalized.append(normalized_url)
         return normalized
 
-    def configure_client(self, client: Client, options: dict[str, Any]) -> Any:
-        namespace = self.setup_namespace(client)
-
+    def configure_client(
+        self, client: Client, options: dict[str, Any], namespace: dict[str, Any]
+    ) -> Any:
         login = options["login"]
         if login is not None:
             user: Any = self.login_user(client, login)
@@ -415,12 +417,14 @@ class Command(RichCommand):
         allowed_hosts: tuple[str, ...] = (),
         verbosity: int = 1,
         status: Any = None,
+        code_namespace: dict[str, Any] | None = None,
     ) -> CrawlResult:
         queue = deque(QueueItem(url, 0) for url in start_urls)
         seen: set[str] = set()
         query_variants: dict[str, set[str]] = {}
         errors: list[CrawlError] = []
-        code_namespace: dict[str, Any] = {}
+        if code_namespace is None:
+            code_namespace = {}
         update_status = getattr(status, "update", None)
 
         while queue and len(seen) < max_pages:

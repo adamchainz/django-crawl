@@ -179,6 +179,27 @@ class CrawlCommandTests(TestCase):
         ) in out
         assert err == ""
 
+    def test_crawl_code_shares_setup_namespace(self):
+        out, err, returncode = run_command(
+            "crawl",
+            "/ok/",
+            "--depth",
+            "0",
+            "--setup-code",
+            "count = 0",
+            "-c",
+            "count += 1; print(count, client is not None)",
+        )
+
+        assert out == (
+            "🐛 Crawling up to 1000 URLs\n"
+            "1 True\n"
+            "🦋 Crawled 1 URL, encountered 0 errors, "
+            "stopped due to finding no more links.\n"
+        )
+        assert err == ""
+        assert returncode == 0
+
     def test_crawl_setup_code_can_configure_client(self):
         out, err, returncode = run_command(
             "crawl",
@@ -472,7 +493,7 @@ class LoginTests(TestCase):
         }
 
         with patch.object(command, "login_superuser") as login_superuser:
-            command.configure_client(client, options)
+            command.configure_client(client, options, {})
 
         login_superuser.assert_called_once_with(client)
 
@@ -486,7 +507,7 @@ class LoginTests(TestCase):
         }
 
         with patch.object(command, "login_superuser") as login_superuser:
-            command.configure_client(client, options)
+            command.configure_client(client, options, {})
 
         login_superuser.assert_not_called()
 
@@ -500,7 +521,7 @@ class LoginTests(TestCase):
         }
 
         with patch.object(command, "login_user") as login_user:
-            command.configure_client(client, options)
+            command.configure_client(client, options, {})
 
         login_user.assert_called_once_with(client, "test@example.com")
 
