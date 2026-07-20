@@ -478,7 +478,7 @@ class Command(RichCommand):
 
             if code is not None:
                 code_error = self.run_response_code(
-                    code, code_namespace, response, item.url
+                    code, code_namespace, response, item.url, status
                 )
                 if code_error is not None:
                     errors.append(code_error)
@@ -529,8 +529,13 @@ class Command(RichCommand):
         namespace: dict[str, Any],
         response: Any,
         url: str,
+        status: Any = None,
     ) -> CrawlError | None:
         namespace["response"] = response
+        stop = getattr(status, "stop", None)
+        start = getattr(status, "start", None)
+        if stop is not None:
+            stop()
         try:
             with (
                 redirect_stdout(PassthroughStream(self.stdout)),
@@ -544,6 +549,9 @@ class Command(RichCommand):
                 message="Response code raised an exception.",
                 exc_info=_exc if _exc[0] is not None else None,
             )
+        finally:
+            if start is not None:
+                start()
         return None
 
     def report_error(self, console: Console, error: CrawlError) -> None:
