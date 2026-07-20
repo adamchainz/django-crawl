@@ -15,6 +15,8 @@ class IsXmlTests(ParametrizedTestCase, SimpleTestCase):
             ("application/xml; charset=utf-8", True),
             ("text/xml", True),
             ("  Application/XML ; charset=utf-8", True),
+            ("application/rss+xml", True),
+            ("application/atom+xml", True),
             ("text/html", False),
             ("application/json", False),
             ("", False),
@@ -60,6 +62,42 @@ class ExtractLinksTests(SimpleTestCase):
         )
 
         assert extract_links(response) == ["/one/"]
+
+    def test_rss_feed(self):
+        response = HttpResponse(
+            '<?xml version="1.0" encoding="utf-8"?>'
+            '<rss xmlns:atom="http://www.w3.org/2005/Atom" version="2.0">'
+            "<channel>"
+            "<title>Example</title>"
+            "<link>https://example.com/blog/</link>"
+            '<atom:link href="https://example.com/feed.rss" rel="self"/>'
+            "<link> </link>"
+            "<item><title>One</title><link>https://example.com/one/</link></item>"
+            "</channel>"
+            "</rss>",
+            content_type="application/rss+xml; charset=utf-8",
+        )
+
+        assert extract_links(response) == [
+            "https://example.com/blog/",
+            "https://example.com/feed.rss",
+            "https://example.com/one/",
+        ]
+
+    def test_atom_feed(self):
+        response = HttpResponse(
+            '<feed xmlns="http://www.w3.org/2005/Atom">'
+            '<link href="https://example.com/blog/" rel="alternate"/>'
+            "<link/>"
+            '<entry><link href="https://example.com/one/"/></entry>'
+            "</feed>",
+            content_type="application/atom+xml; charset=utf-8",
+        )
+
+        assert extract_links(response) == [
+            "https://example.com/blog/",
+            "https://example.com/one/",
+        ]
 
     def test_invalid_xml(self):
         response = HttpResponse("<urlset", content_type="application/xml")

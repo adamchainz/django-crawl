@@ -103,6 +103,21 @@ def sitemap(request: HttpRequest) -> HttpResponse:
     )
 
 
+def feed(request: HttpRequest) -> HttpResponse:
+    return HttpResponse(
+        '<?xml version="1.0" encoding="utf-8"?>'
+        '<rss xmlns:atom="http://www.w3.org/2005/Atom" version="2.0">'
+        "<channel>"
+        "<title>Example</title>"
+        "<link>https://testserver/ok/</link>"
+        '<atom:link href="https://testserver/feed.rss" rel="self"/>'
+        "<item><title>One</title><link>https://testserver/target/</link></item>"
+        "</channel>"
+        "</rss>",
+        content_type="application/rss+xml; charset=utf-8",
+    )
+
+
 def streaming(request: HttpRequest) -> StreamingHttpResponse:
     return StreamingHttpResponse(
         iter([b'<a href="/ok/">ok</a>']),
@@ -129,5 +144,6 @@ urlpatterns = [
     path("needs-host/", needs_host),
     path("plain/", plain),
     path("sitemap.xml", sitemap),
+    path("feed.rss", feed),
     path("streaming/", streaming),
 ]

@@ -182,6 +182,25 @@ class CrawlCommandTests(TestCase):
         assert err == ""
         assert returncode == 0
 
+    def test_crawl_follows_feed_urls(self):
+        out, err, returncode = run_command(
+            "crawl",
+            "/feed.rss",
+            "--depth",
+            "1",
+            "-c",
+            "print(response.wsgi_request.path)",
+        )
+
+        assert out == (
+            "🐛 Crawling up to 1000 URLs\n"
+            "/feed.rss\n/ok/\n/target/\n"
+            "🦋 Crawled 3 URLs, encountered 0 errors, "
+            "stopped due to finding no more links.\n"
+        )
+        assert err == ""
+        assert returncode == 0
+
     def test_crawl_skips_extraction_for_plain_text(self):
         out, err, returncode = run_command("crawl", "/plain/", "--depth", "1")
 
