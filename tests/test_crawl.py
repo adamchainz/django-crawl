@@ -330,7 +330,56 @@ class CrawlCommandTests(TestCase):
         out, err, returncode = run_command("crawl", "https://example.com/")
 
         assert out == ""
-        assert "Start URL must be an internal path" in err
+        assert "Start URL must be an internal path or on an allowed host" in err
+        assert returncode == 1
+
+    @override_settings(ALLOWED_HOSTS=["docs.example.com"])
+    def test_absolute_start_url_to_allowed_host(self):
+        out, err, returncode = run_command(
+            "crawl", "https://docs.example.com/needs-host/", "--depth", "0"
+        )
+
+        assert out == (
+            "🐛 Crawling up to 1000 URLs\n"
+            "🦋 Crawled 1 URL, encountered 0 errors, "
+            "stopped due to finding no more links.\n"
+        )
+        assert err == ""
+        assert returncode == 0
+
+    @override_settings(ALLOWED_HOSTS=["docs.example.com"])
+    def test_crawl_follows_cross_host_links_with_matching_host(self):
+        out, err, returncode = run_command(
+            "crawl",
+            "/cross-host/",
+            "--depth",
+            "1",
+            "-c",
+            "print(response.wsgi_request.get_host(), response.status_code)",
+        )
+
+        assert out == (
+            "🐛 Crawling up to 1000 URLs\n"
+            "testserver 200\n"
+            "docs.example.com 200\n"
+            "🦋 Crawled 2 URLs, encountered 0 errors, "
+            "stopped due to finding no more links.\n"
+        )
+        assert err == ""
+        assert returncode == 0
+
+    @override_settings(ALLOWED_HOSTS=["*"])
+    def test_crawl_skips_external_links_with_wildcard_allowed_hosts(self):
+        out, _err, returncode = run_command("crawl", "/", "--depth", "1")
+
+        # The index page links to https://example.com/external/ — with a
+        # wildcard in ALLOWED_HOSTS it must still be treated as external,
+        # not crawled as the local path /external/.
+        assert "/external/" not in out
+        assert (
+            "🦋 Crawled 5 URLs, encountered 3 errors, "
+            "stopped due to finding no more links."
+        ) in out
         assert returncode == 1
 
     def test_setup_negative_paths_report_errors(self):
@@ -451,23 +500,79 @@ class URLTests(TestCase):
 
     def test_normalize_url_accepts_protocol_relative_urls(self):
         assert (
-            crawl.normalize_url("//example.com/foo/?x=1", ("example.com",))
+            crawl.normalize_url(
+                "//example.com/foo/?x=1", ("example.com",), "example.com"
+            )
             == "/foo/?x=1"
         )
 
     def test_normalize_url_rejects_protocol_relative_urls_to_other_hosts(self):
         assert crawl.normalize_url("//other.example.com/foo/", ("example.com",)) is None
 
-    def test_normalize_url_accepts_absolute_urls_to_allowed_hosts(self):
+    def test_normalize_url_strips_client_host(self):
         assert (
-            crawl.normalize_url("https://example.com/foo/?x=1", ("example.com",))
+            crawl.normalize_url(
+                "https://example.com/foo/?x=1", ("example.com",), "example.com"
+            )
             == "/foo/?x=1"
         )
 
-    def test_normalize_url_accepts_http_absolute_urls(self):
+    def test_normalize_url_strips_uppercase_client_host(self):
         assert (
-            crawl.normalize_url("http://example.com/foo/", ("example.com",)) == "/foo/"
+            crawl.normalize_url(
+                "https://Example.com/foo/", ("example.com",), "example.com"
+            )
+            == "/foo/"
         )
+
+    def test_normalize_url_keeps_host_without_client_host(self):
+        assert (
+            crawl.normalize_url("http://example.com/foo/", ("example.com",))
+            == "//example.com/foo/"
+        )
+
+    def test_normalize_url_keeps_other_allowed_host(self):
+        assert (
+            crawl.normalize_url(
+                "https://api.example.com/health",
+                ("example.com", "api.example.com"),
+                "example.com",
+            )
+            == "//api.example.com/health"
+        )
+
+    def test_normalize_url_keeps_port(self):
+        assert (
+            crawl.normalize_url(
+                "http://localhost:8000/page/", ("localhost",), "testserver"
+            )
+            == "//localhost:8000/page/"
+        )
+
+    def test_normalize_url_strips_userinfo(self):
+        assert (
+            crawl.normalize_url(
+                "https://user:pw@example.com/x", ("example.com",), "testserver"
+            )
+            == "//example.com/x"
+        )
+
+    def test_normalize_url_handles_ipv6_hosts(self):
+        assert (
+            crawl.normalize_url("http://[::1]:8000/x", ("[::1]",), "testserver")
+            == "//[::1]:8000/x"
+        )
+
+    def test_normalize_url_strips_client_host_with_port(self):
+        assert crawl.normalize_url("//[::1]/x", ("[::1]",), "[::1]:8000") == "/x"
+
+    def test_normalize_url_rejects_invalid_port(self):
+        assert (
+            crawl.normalize_url("https://example.com:bad/x", ("example.com",)) is None
+        )
+
+    def test_normalize_url_rejects_empty_host(self):
+        assert crawl.normalize_url("http://user@/x", ("example.com",)) is None
 
     def test_normalize_url_rejects_absolute_urls_to_other_hosts(self):
         assert (
@@ -476,6 +581,13 @@ class URLTests(TestCase):
 
     def test_normalize_url_rejects_absolute_urls_without_allowed_hosts(self):
         assert crawl.normalize_url("https://example.com/foo/") is None
+
+    def test_normalize_url_ignores_wildcard_allowed_host(self):
+        assert crawl.normalize_url("https://github.com/user/repo", ("*",)) is None
+
+    def test_normalize_url_rejects_scheme_without_host(self):
+        assert crawl.normalize_url("https:/example.com/x") is None
+        assert crawl.normalize_url("http:foo") is None
 
     def test_normalize_url_rejects_non_http_schemes(self):
         assert crawl.normalize_url("mailto:someone@example.com") is None
