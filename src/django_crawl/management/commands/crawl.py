@@ -483,6 +483,12 @@ class Command(RichCommand):
                 errors.append(error)
                 self.report_error(self.console, error)
 
+            # Extract links before running response code, which may consume
+            # a streaming response's body.
+            links: list[str] = []
+            if item.depth < depth and is_html(response):
+                links = extract_links(response)
+
             if code is not None:
                 code_error = self.run_response_code(
                     code, code_namespace, response, item.url, status
@@ -491,9 +497,7 @@ class Command(RichCommand):
                     errors.append(code_error)
                     self.report_error(self.console, code_error)
 
-            if item.depth >= depth or not is_html(response):
-                continue
-            for href in extract_links(response):
+            for href in links:
                 linked_url = normalize_url(urljoin(item.url, href), allowed_hosts)
 
                 if linked_url is not None and linked_url not in seen:

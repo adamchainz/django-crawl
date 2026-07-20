@@ -117,6 +117,15 @@ class ExtractLinksTests(SimpleTestCase):
 
         assert extract_links(response) == ["/one/", "/two/"]
 
+    def test_streaming_response_body_readable_after_extraction(self):
+        response = StreamingHttpResponse(
+            iter([b'<a href="/one/">one</a>']),
+            content_type="text/html",
+        )
+
+        assert extract_links(response) == ["/one/"]
+        assert response.getvalue() == b'<a href="/one/">one</a>'
+
     def test_streaming_response_with_link_header(self):
         response = StreamingHttpResponse(iter([b""]), content_type="text/html")
         response["Link"] = "</style.css>; rel=preload"

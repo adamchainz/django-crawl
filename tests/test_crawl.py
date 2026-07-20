@@ -144,6 +144,25 @@ class CrawlCommandTests(TestCase):
         assert err == ""
         assert returncode == 0
 
+    def test_crawl_follows_streaming_links_when_code_reads_body(self):
+        out, err, returncode = run_command(
+            "crawl",
+            "/streaming/",
+            "--depth",
+            "1",
+            "-c",
+            "response.getvalue(); print(response.wsgi_request.path)",
+        )
+
+        assert out == (
+            "🐛 Crawling up to 1000 URLs\n"
+            "/streaming/\n/ok/\n"
+            "🦋 Crawled 2 URLs, encountered 0 errors, "
+            "stopped due to finding no more links.\n"
+        )
+        assert err == ""
+        assert returncode == 0
+
     def test_crawl_runs_code_for_every_response(self):
         out, err, returncode = run_command(
             "crawl",
