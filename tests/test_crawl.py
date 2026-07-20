@@ -790,6 +790,15 @@ class CrawlInternalsTests(TestCase):
         assert result.count == 1
         assert result.errors == []
 
+    def test_stop_reason_no_more_links_when_queue_has_only_seen_urls(self):
+        command = Command()
+        client = Client()
+
+        result = command.crawl(client, ["/ok/", "/deep/"], 1, 2, 10, None)
+
+        assert result.count == 2
+        assert result.stop_reason == StopReason.NO_MORE_LINKS
+
     def test_query_variants_are_limited_per_path(self):
         command = Command()
         client = Client()

@@ -494,7 +494,7 @@ class Command(RichCommand):
 
         stop_reason = (
             StopReason.MAX_PAGES
-            if queue and len(seen) >= max_pages
+            if any(item.url not in seen for item in queue)
             else StopReason.NO_MORE_LINKS
         )
         return CrawlResult(count=len(seen), errors=errors, stop_reason=stop_reason)
