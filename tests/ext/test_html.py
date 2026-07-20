@@ -94,6 +94,26 @@ class ExtractLinksTests(SimpleTestCase):
             "/submit",
         ]
 
+    def test_media_elements(self):
+        response = HttpResponse(
+            '<video src="/v.mp4" poster="/v.jpg"><track src="/v.vtt"></video>'
+            '<audio src="/a.mp3"><source src="/a.ogg"></audio>'
+            '<object data="/o.pdf"></object>'
+            '<embed src="/e.svg">'
+            '<input type="image" src="/i.png">',
+        )
+
+        assert extract_links(response) == [
+            "/a.ogg",
+            "/v.mp4",
+            "/v.jpg",
+            "/a.mp3",
+            "/v.vtt",
+            "/o.pdf",
+            "/e.svg",
+            "/i.png",
+        ]
+
     def test_srcset_urls(self):
         response = HttpResponse(
             '<img src="/a.png" srcset="/a-1x.png 1x, /a-2x.png 2x">'
