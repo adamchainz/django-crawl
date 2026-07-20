@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import logging
 import sys
+import threading
+import time
 import warnings
 from contextlib import nullcontext
 from io import StringIO
@@ -952,6 +954,37 @@ class StatusAwareStderrTests(TestCase):
             warnings.warn("msg", UserWarning, stacklevel=2)
 
         assert calls == ["stop", "start"]
+
+    def test_pauses_are_serialized_across_threads(self):
+        events = []
+
+        class Status:
+            def stop(self):
+                events.append("stop")
+                time.sleep(0.001)
+
+            def start(self):
+                time.sleep(0.001)
+                events.append("start")
+
+        real = sys.stderr
+        sys.stderr = StringIO()
+        try:
+            with crawl.status_aware_stderr(Status()):
+
+                def write():
+                    for _ in range(10):
+                        sys.stderr.write("x")
+
+                threads = [threading.Thread(target=write) for _ in range(10)]
+                for thread in threads:
+                    thread.start()
+                for thread in threads:
+                    thread.join()
+        finally:
+            sys.stderr = real
+
+        assert events == ["stop", "start"] * 100
 
     def test_pausing_guard_prevents_double_pause(self):
         calls = []
