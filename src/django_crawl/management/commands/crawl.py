@@ -38,7 +38,10 @@ from django_crawl.ext.argparse import (
     max_query_variants as max_query_variants_type,
 )
 from django_crawl.ext.argparse import non_negative_int, positive_int
-from django_crawl.ext.html import extract_links, is_html
+from django_crawl.ext.html import extract_links as extract_html_links
+from django_crawl.ext.html import is_html
+from django_crawl.ext.xml import extract_links as extract_xml_links
+from django_crawl.ext.xml import is_xml
 
 if sys.version_info >= (3, 11):
     from typing import assert_never
@@ -486,8 +489,11 @@ class Command(RichCommand):
             # Extract links before running response code, which may consume
             # a streaming response's body.
             links: list[str] = []
-            if item.depth < depth and is_html(response):
-                links = extract_links(response)
+            if item.depth < depth:
+                if is_html(response):
+                    links = extract_html_links(response)
+                elif is_xml(response):
+                    links = extract_xml_links(response)
 
             if code is not None:
                 code_error = self.run_response_code(

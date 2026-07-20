@@ -102,6 +102,13 @@ Use `-v 2` (``--verbosity 2``) or higher to report each URL as it is crawled:
 
     $ ./manage.py crawl -v 2
 
+The command also extracts URLs from XML sitemaps and sitemap indexes, like those served by ``django.contrib.sitemaps``.
+Crawl your sitemap to check that every page it lists renders:
+
+.. code-block:: console
+
+    $ ./manage.py crawl /sitemap.xml
+
 The command follows redirects.
 Each response counts towards the ``--max-urls`` limit, including each redirect hop.
 It reports HTTP 400, 404, 500, and other 4xx/5xx responses, including Django exception tracebacks when available.

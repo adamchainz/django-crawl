@@ -163,6 +163,36 @@ class CrawlCommandTests(TestCase):
         assert err == ""
         assert returncode == 0
 
+    def test_crawl_follows_sitemap_urls(self):
+        out, err, returncode = run_command(
+            "crawl",
+            "/sitemap.xml",
+            "--depth",
+            "1",
+            "-c",
+            "print(response.wsgi_request.path)",
+        )
+
+        assert out == (
+            "🐛 Crawling up to 1000 URLs\n"
+            "/sitemap.xml\n/ok/\n/target/\n"
+            "🦋 Crawled 3 URLs, encountered 0 errors, "
+            "stopped due to finding no more links.\n"
+        )
+        assert err == ""
+        assert returncode == 0
+
+    def test_crawl_skips_extraction_for_plain_text(self):
+        out, err, returncode = run_command("crawl", "/plain/", "--depth", "1")
+
+        assert out == (
+            "🐛 Crawling up to 1000 URLs\n"
+            "🦋 Crawled 1 URL, encountered 0 errors, "
+            "stopped due to finding no more links.\n"
+        )
+        assert err == ""
+        assert returncode == 0
+
     def test_crawl_runs_code_for_every_response(self):
         out, err, returncode = run_command(
             "crawl",

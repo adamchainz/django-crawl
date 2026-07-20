@@ -88,6 +88,21 @@ def needs_host(request: HttpRequest) -> HttpResponse:
     return HttpResponse("forbidden", status=403)
 
 
+def plain(request: HttpRequest) -> HttpResponse:
+    return HttpResponse("no links here", content_type="text/plain")
+
+
+def sitemap(request: HttpRequest) -> HttpResponse:
+    return HttpResponse(
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+        "<url><loc>https://testserver/ok/</loc></url>"
+        "<url><loc>https://testserver/target/</loc></url>"
+        "</urlset>",
+        content_type="application/xml",
+    )
+
+
 def streaming(request: HttpRequest) -> StreamingHttpResponse:
     return StreamingHttpResponse(
         iter([b'<a href="/ok/">ok</a>']),
@@ -112,5 +127,7 @@ urlpatterns = [
     path("nested/page/", nested_page),
     path("needs-setup/", needs_setup),
     path("needs-host/", needs_host),
+    path("plain/", plain),
+    path("sitemap.xml", sitemap),
     path("streaming/", streaming),
 ]
