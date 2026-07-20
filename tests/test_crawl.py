@@ -365,8 +365,27 @@ class URLTests(TestCase):
     def test_normalize_url_rejects_protocol_relative_urls_to_other_hosts(self):
         assert crawl.normalize_url("//other.example.com/foo/", ("example.com",)) is None
 
-    def test_normalize_url_rejects_urls_with_scheme(self):
+    def test_normalize_url_accepts_absolute_urls_to_allowed_hosts(self):
+        assert (
+            crawl.normalize_url("https://example.com/foo/?x=1", ("example.com",))
+            == "/foo/?x=1"
+        )
+
+    def test_normalize_url_accepts_http_absolute_urls(self):
+        assert (
+            crawl.normalize_url("http://example.com/foo/", ("example.com",)) == "/foo/"
+        )
+
+    def test_normalize_url_rejects_absolute_urls_to_other_hosts(self):
+        assert (
+            crawl.normalize_url("https://other.example.com/", ("example.com",)) is None
+        )
+
+    def test_normalize_url_rejects_absolute_urls_without_allowed_hosts(self):
         assert crawl.normalize_url("https://example.com/foo/") is None
+
+    def test_normalize_url_rejects_non_http_schemes(self):
+        assert crawl.normalize_url("mailto:someone@example.com") is None
 
     def test_start_urls_default_to_root(self):
         assert Command().start_urls([]) == ["/"]

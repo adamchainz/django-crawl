@@ -90,7 +90,7 @@ class SuppressDjangoRequestLogs(logging.Filter):
 def normalize_url(url: str, allowed_hosts: tuple[str, ...] = ()) -> str | None:
     url, _fragment = urldefrag(url)
     parts = urlsplit(url)
-    if parts.scheme:
+    if parts.scheme and parts.scheme not in ("http", "https"):
         return None
     if parts.netloc and not validate_host(parts.netloc, allowed_hosts):
         return None
