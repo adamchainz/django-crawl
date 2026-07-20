@@ -343,9 +343,9 @@ class CrawlCommandTests(TestCase):
         assert err == ""
         assert returncode == 0
 
-    def test_start_message_includes_max_pages(self):
+    def test_start_message_includes_max_urls(self):
         out, _err, returncode = run_command(
-            "crawl", "/ok/", "--depth", "0", "--max-pages", "5"
+            "crawl", "/ok/", "--depth", "0", "--max-urls", "5"
         )
 
         assert returncode == 0
@@ -373,16 +373,16 @@ class CrawlCommandTests(TestCase):
         lines = out.splitlines()
         assert lines[0] == "🐛 Crawling up to 1000 URLs, logged in as alice"
 
-    def test_stops_at_max_pages_limit(self):
+    def test_stops_at_max_urls_limit(self):
         out, _err, returncode = run_command(
-            "crawl", "/", "--depth", "5", "--max-pages", "1"
+            "crawl", "/", "--depth", "5", "--max-urls", "1"
         )
 
         assert returncode == 0
         lines = out.splitlines()
         assert lines[-1] == (
             "🦋 Crawled 1 URL, encountered 0 errors, "
-            "stopped due to reaching max page limit of 1."
+            "stopped due to reaching max URL limit of 1."
         )
 
 
