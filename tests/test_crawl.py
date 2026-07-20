@@ -8,6 +8,7 @@ from io import StringIO
 from unittest.mock import PropertyMock, patch
 
 import pytest
+from django.core.exceptions import MultipleObjectsReturned
 from django.test import Client, TestCase, override_settings
 from rich.console import Console
 
@@ -662,6 +663,51 @@ class LoginTests(TestCase):
             ),
         ):
             command.login_user(Client(), "missing@example.com")
+
+    def test_login_user_multiple_users_errors(self):
+        command = Command()
+
+        class Manager:
+            def get(self, **kwargs):
+                raise MultipleObjectsReturned
+
+        class User:
+            USERNAME_FIELD = "username"
+            _default_manager = Manager()
+
+        with (
+            patch.object(crawl, "get_user_model", return_value=User),
+            self.assertRaisesRegex(
+                crawl.CommandError, "Multiple users have username 'alice'"
+            ),
+        ):
+            command.login_user(Client(), "alice")
+
+    def test_login_user_multiple_email_users_errors(self):
+        command = Command()
+
+        class Meta:
+            def get_field(self, name):
+                assert name == "email"
+
+        class Manager:
+            def get(self, **kwargs):
+                if "username" in kwargs:
+                    raise crawl.ObjectDoesNotExist
+                raise crawl.MultipleObjectsReturned
+
+        class User:
+            USERNAME_FIELD = "username"
+            _meta = Meta()
+            _default_manager = Manager()
+
+        with (
+            patch.object(crawl, "get_user_model", return_value=User),
+            self.assertRaisesRegex(
+                crawl.CommandError, "Multiple users have email 'test@example.com'"
+            ),
+        ):
+            command.login_user(Client(), "test@example.com")
 
     def test_login_user_by_email(self):
         command = Command()
