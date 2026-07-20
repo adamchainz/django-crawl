@@ -70,15 +70,21 @@ def extract_links(response: HttpResponseBase) -> list[str]:
             for srcset_url in parse_srcset(value):
                 links.append(resolve(srcset_url))
 
-    for form in document.query("form[action]"):
+    for form in document.query("form"):
         # Non-GET forms would be requested with the wrong method, and GETting
         # their actions may trigger side effects, e.g. the admin logout form.
-        method = form.attrs.get("method", "").strip().lower()
-        if method and method != "get":
-            continue
-        action = form.attrs.get("action")
-        if action:
-            links.append(resolve(action))
+        form_method = form.attrs.get("method", "").strip().lower() or "get"
+        if form_method == "get":
+            action = form.attrs.get("action")
+            if action:
+                links.append(resolve(action))
+        for el in form.query("button[formaction], input[formaction]"):
+            method = el.attrs.get("formmethod", "").strip().lower() or form_method
+            if method != "get":
+                continue
+            formaction = el.attrs.get("formaction")
+            if formaction:
+                links.append(resolve(formaction))
 
     for meta in document.query("meta[http-equiv]"):
         if meta.attrs.get("http-equiv", "").lower() != "refresh":
