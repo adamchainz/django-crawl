@@ -50,6 +50,14 @@ def extract_links(response: HttpResponseBase) -> list[str]:
         ("iframe[src]", "src"),
         ("script[src]", "src"),
         ("img[src]", "src"),
+        ("source[src]", "src"),
+        ("video[src]", "src"),
+        ("video[poster]", "poster"),
+        ("audio[src]", "src"),
+        ("track[src]", "src"),
+        ("object[data]", "data"),
+        ("embed[src]", "src"),
+        ("input[src]", "src"),
     ):
         for el in document.query(selector):
             value = el.attrs.get(attr)
