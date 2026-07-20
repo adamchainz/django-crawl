@@ -68,7 +68,7 @@ To get started, run the ``crawl`` management command:
 
     $ ./manage.py crawl
 
-By default, the command starts at ``/`` and crawls up to 1000 pages, up to five links deep.
+By default, the command starts at ``/`` and crawls up to 1000 URLs, up to five links deep.
 Pass one or more start URLs to crawl specific areas:
 
 .. code-block:: console
@@ -81,11 +81,11 @@ Use ``--depth`` to control how many links are followed from each start URL:
 
     $ ./manage.py crawl --depth 2
 
-Use ``--max-pages`` to change the overall page limit:
+Use ``--max-urls`` to change the overall URL limit:
 
 .. code-block:: console
 
-    $ ./manage.py crawl --max-pages 500
+    $ ./manage.py crawl --max-urls 500
 
 By default, django-crawl crawls up to 10 query string variants per path.
 This avoids it getting stuck in large spaces of sorting and filtering links, such as Django admin changelists.
@@ -103,7 +103,7 @@ Use `-v 2` (``--verbosity 2``) or higher to report each URL as it is crawled:
     $ ./manage.py crawl -v 2
 
 The command follows redirects.
-Each response counts towards the ``--max-pages`` limit, including each redirect hop.
+Each response counts towards the ``--max-urls`` limit, including each redirect hop.
 It reports HTTP 400, 404, 500, and other 4xx/5xx responses, including Django exception tracebacks when available.
 It keeps crawling after errors and exits non-zero after reporting them all.
 

@@ -49,7 +49,7 @@ else:
 
 
 DEFAULT_DEPTH = 5
-DEFAULT_MAX_PAGES = 1000
+DEFAULT_MAX_URLS = 1000
 DEFAULT_MAX_QUERY_VARIANTS = 10
 TESTSERVER = "testserver"
 
@@ -74,7 +74,7 @@ class CrawlError:
 
 class StopReason(Enum):
     NO_MORE_LINKS = "no_more_links"
-    MAX_PAGES = "max_pages"
+    MAX_URLS = "max_urls"
 
 
 @dataclass
@@ -218,10 +218,10 @@ class Command(RichCommand):
             ),
         )
         parser.add_argument(
-            "--max-pages",
+            "--max-urls",
             type=positive_int,
-            default=DEFAULT_MAX_PAGES,
-            help=f"Maximum number of pages to request. Defaults to {DEFAULT_MAX_PAGES}.",
+            default=DEFAULT_MAX_URLS,
+            help=f"Maximum number of URLs to request. Defaults to {DEFAULT_MAX_URLS}.",
         )
         parser.add_argument(
             "--max-query-variants",
@@ -261,7 +261,7 @@ class Command(RichCommand):
     def handle(self, *args: Any, **options: Any) -> None:
         start_urls = self.start_urls(options["urls"])
         depth: int = options["depth"]
-        max_pages: int = options["max_pages"]
+        max_urls: int = options["max_urls"]
         max_query_variants: int | None = options["max_query_variants"]
         code: str | None = options["code"]
         verbosity: int = options["verbosity"]
@@ -270,7 +270,7 @@ class Command(RichCommand):
         namespace = self.setup_namespace(client)
         user = self.configure_client(client, options, namespace)
 
-        start_message = f"🐛 Crawling up to {pluralize(max_pages, 'URL', 'URLs')}"
+        start_message = f"🐛 Crawling up to {pluralize(max_urls, 'URL', 'URLs')}"
         if user is not None:
             start_message += f", logged in as {user}"
         self.console.print(start_message, soft_wrap=True)
@@ -310,7 +310,7 @@ class Command(RichCommand):
                 client,
                 start_urls,
                 depth,
-                max_pages,
+                max_urls,
                 max_query_variants,
                 code,
                 allowed_hosts,
@@ -320,8 +320,8 @@ class Command(RichCommand):
             )
 
         match result.stop_reason:
-            case StopReason.MAX_PAGES:
-                reason = f"reaching max page limit of {max_pages}"
+            case StopReason.MAX_URLS:
+                reason = f"reaching max URL limit of {max_urls}"
             case StopReason.NO_MORE_LINKS:
                 reason = "finding no more links"
             case _:  # pragma: no cover
@@ -426,7 +426,7 @@ class Command(RichCommand):
         client: Client,
         start_urls: list[str],
         depth: int,
-        max_pages: int,
+        max_urls: int,
         max_query_variants: int | None,
         code: str | None,
         allowed_hosts: tuple[str, ...] = (),
@@ -442,7 +442,7 @@ class Command(RichCommand):
             code_namespace = {}
         update_status = getattr(status, "update", None)
 
-        while queue and len(seen) < max_pages:
+        while queue and len(seen) < max_urls:
             item = queue.popleft()
             if item.url in seen:
                 continue
@@ -504,7 +504,7 @@ class Command(RichCommand):
                     queue.append(QueueItem(linked_url, item.depth + 1))
 
         stop_reason = (
-            StopReason.MAX_PAGES
+            StopReason.MAX_URLS
             if any(item.url not in seen for item in queue)
             else StopReason.NO_MORE_LINKS
         )
