@@ -9,6 +9,7 @@ from unittest.mock import PropertyMock, patch
 
 import pytest
 from django.core.exceptions import MultipleObjectsReturned
+from django.core.management.base import OutputWrapper
 from django.test import Client, TestCase, override_settings
 from rich.console import Console
 
@@ -434,6 +435,27 @@ class OutputTests(TestCase):
 
         assert output.value == "hello"
         assert output.flushed
+
+    def test_run_response_code_pauses_status_once(self):
+        calls = []
+
+        class Status:
+            def stop(self):
+                calls.append("stop")
+
+            def start(self):
+                calls.append("start")
+
+        command = Command()
+        command.stdout = OutputWrapper(StringIO())
+        command.stderr = OutputWrapper(StringIO())
+
+        error = command.run_response_code(
+            "print('a'); print('b')", {}, response=None, url="/", status=Status()
+        )
+
+        assert error is None
+        assert calls == ["stop", "start"]
 
     def test_report_error_without_traceback(self):
         err = StringIO()
