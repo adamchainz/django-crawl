@@ -512,9 +512,10 @@ class Command(RichCommand):
                 path = urlunsplit(("", "", url_parts.path, url_parts.query, ""))
                 headers["Host"] = url_parts.netloc
 
+            if verbosity >= 2:
+                self.console.print(item.url, markup=False, soft_wrap=True)
+
             try:
-                if verbosity >= 2:
-                    self.console.print(item.url)
                 response = client.get(path, headers=headers)
             except Exception:
                 _exc = sys.exc_info()

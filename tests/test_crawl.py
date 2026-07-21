@@ -441,6 +441,20 @@ class CrawlCommandTests(TestCase):
         assert err == ""
         assert returncode == 0
 
+    def test_verbose_crawl_prints_urls_with_markup_like_characters(self):
+        out, err, returncode = run_command(
+            "crawl", "/ok/?q=[/]", "--depth", "0", "--verbosity", "2"
+        )
+
+        assert out == (
+            "🐛 Crawling up to 1000 URLs\n"
+            "/ok/?q=[/]\n"
+            "🦋 Crawled 1 URL, encountered 0 errors, "
+            "stopped due to finding no more links.\n"
+        )
+        assert err == ""
+        assert returncode == 0
+
     def test_start_message_includes_max_urls(self):
         out, _err, returncode = run_command(
             "crawl", "/ok/", "--depth", "0", "--max-urls", "5"
