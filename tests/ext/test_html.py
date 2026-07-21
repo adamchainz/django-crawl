@@ -224,6 +224,14 @@ class ParseSrcsetTests(ParametrizedTestCase, SimpleTestCase):
             ("/a.png 1x, /b.png 2x", ["/a.png", "/b.png"]),
             ("/a.png 100w,", ["/a.png"]),
             (" , ", []),
+            ("/a.png,/b.png 2x", ["/a.png,/b.png"]),
+            ("/crop=10,20,300,200/img.jpg 1x", ["/crop=10,20,300,200/img.jpg"]),
+            ("/a.png,, ,/b.png 2x", ["/a.png", "/b.png"]),
+            ("/a.png 1x,/b.png 2x", ["/a.png", "/b.png"]),
+            (
+                "data:image/png;base64,iVBORw0KGgo 1x",
+                ["data:image/png;base64,iVBORw0KGgo"],
+            ),
         ],
     )
     def test_parse_srcset(self, value, expected):
