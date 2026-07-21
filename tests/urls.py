@@ -88,6 +88,10 @@ def needs_host(request: HttpRequest) -> HttpResponse:
     return HttpResponse("forbidden", status=403)
 
 
+def cross_host_links(request: HttpRequest) -> HttpResponse:
+    return HttpResponse('<a href="https://docs.example.com/needs-host/">docs</a>')
+
+
 def plain(request: HttpRequest) -> HttpResponse:
     return HttpResponse("no links here", content_type="text/plain")
 
@@ -142,6 +146,7 @@ urlpatterns = [
     path("nested/page/", nested_page),
     path("needs-setup/", needs_setup),
     path("needs-host/", needs_host),
+    path("cross-host/", cross_host_links),
     path("plain/", plain),
     path("sitemap.xml", sitemap),
     path("feed.rss", feed),

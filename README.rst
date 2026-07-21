@@ -59,7 +59,8 @@ django-crawl provides a ``crawl`` management command that iteratively crawls thr
 It renders pages within the same process and avoids serializing requests and responses to HTTP, making it somewhat faster and a lot more flexible than regular HTTP crawlers.
 
 ``crawl`` follows internal links, follows redirects, and reports every broken page it finds before failing.
-It always follows relative links, and it follows absolute ``http(s)`` links when their host is the test client’s host or in ``ALLOWED_HOSTS``.
+It always follows relative links, and it follows absolute ``http(s)`` links when their host is the test client’s host or in ``ALLOWED_HOSTS``  (a ``'*'`` entry is ignored).
+Links to another allowed host are requested with that host in the ``Host`` header, so host-based routing works.
 It only makes ``GET`` requests.
 
 To get started, run the ``crawl`` management command:

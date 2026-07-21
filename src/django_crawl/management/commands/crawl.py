@@ -92,17 +92,49 @@ class SuppressDjangoRequestLogs(logging.Filter):
         return False
 
 
-def normalize_url(url: str, allowed_hosts: tuple[str, ...] = ()) -> str | None:
+def normalize_url(
+    url: str,
+    allowed_hosts: tuple[str, ...] = (),
+    client_host: str | None = None,
+) -> str | None:
     url, _fragment = urldefrag(url)
     parts = urlsplit(url)
     if parts.scheme and parts.scheme not in ("http", "https"):
         return None
-    if parts.netloc and not validate_host(parts.netloc, allowed_hosts):
+    if parts.scheme and not parts.netloc:
         return None
+    netloc = ""
+    if parts.netloc:
+        host_port = split_host(parts.netloc)
+        if host_port is None:
+            return None
+        host, port = host_port
+        # A '*' entry would make every host look internal, so ignore it.
+        if not validate_host(host, [h for h in allowed_hosts if h != "*"]):
+            return None
+        client_host_port = split_host(client_host) if client_host else None
+        if client_host_port is None or host != client_host_port[0]:
+            # Keep the host so the URL is requested with a matching Host
+            # header, for sites that route on it.
+            netloc = host if port is None else f"{host}:{port}"
     path = parts.path or "/"
     if not path.startswith("/"):
         path = f"/{path}"
-    return urlunsplit(("", "", path, parts.query, ""))
+    return urlunsplit(("", netloc, path, parts.query, ""))
+
+
+def split_host(netloc: str) -> tuple[str, int | None] | None:
+    """Extract the lowercased host, without userinfo, and port from a netloc."""
+    parts = urlsplit(f"//{netloc}")
+    try:
+        host, port = parts.hostname, parts.port
+    except ValueError:
+        return None
+    if not host:
+        return None
+    if ":" in host:
+        host = f"[{host}]"
+    return host, port
 
 
 def pluralize(count: int, singular: str, plural: str) -> str:
@@ -262,7 +294,6 @@ class Command(RichCommand):
         )
 
     def handle(self, *args: Any, **options: Any) -> None:
-        start_urls = self.start_urls(options["urls"])
         depth: int = options["depth"]
         max_urls: int = options["max_urls"]
         max_query_variants: int | None = options["max_query_variants"]
@@ -272,6 +303,14 @@ class Command(RichCommand):
         client = Client(HTTP_HOST=TESTSERVER)
         namespace = self.setup_namespace(client)
         user = self.configure_client(client, options, namespace)
+
+        http_host = client.defaults.get("HTTP_HOST")
+        allowed_hosts = tuple(
+            dict.fromkeys(
+                h for h in (TESTSERVER, http_host, *settings.ALLOWED_HOSTS) if h
+            )
+        )
+        start_urls = self.start_urls(options["urls"], allowed_hosts, http_host)
 
         start_message = f"🐛 Crawling up to {pluralize(max_urls, 'URL', 'URLs')}"
         if user is not None:
@@ -286,7 +325,6 @@ class Command(RichCommand):
             else nullcontext()
         )
         with ExitStack() as stack:
-            http_host = client.defaults.get("HTTP_HOST")
             if "*" not in settings.ALLOWED_HOSTS:
                 extra = [
                     h
@@ -304,11 +342,6 @@ class Command(RichCommand):
             stack.enter_context(status)
             if self.console.is_terminal:
                 stack.enter_context(status_aware_stderr(status))
-            allowed_hosts = (
-                (http_host, *settings.ALLOWED_HOSTS)
-                if http_host
-                else tuple(settings.ALLOWED_HOSTS)
-            )
             result = self.crawl(
                 client,
                 start_urls,
@@ -320,6 +353,7 @@ class Command(RichCommand):
                 verbosity=verbosity,
                 status=status,
                 code_namespace=namespace,
+                client_host=http_host,
             )
 
         match result.stop_reason:
@@ -338,17 +372,30 @@ class Command(RichCommand):
         if result.errors:
             raise SystemExit(1)
 
-    def start_urls(self, urls: list[str]) -> list[str]:
+    def start_urls(
+        self,
+        urls: list[str],
+        allowed_hosts: tuple[str, ...] = (),
+        client_host: str | None = None,
+    ) -> list[str]:
         if urls:
-            return self.normalize_start_urls(urls)
+            return self.normalize_start_urls(urls, allowed_hosts, client_host)
         return ["/"]
 
-    def normalize_start_urls(self, urls: list[str]) -> list[str]:
+    def normalize_start_urls(
+        self,
+        urls: list[str],
+        allowed_hosts: tuple[str, ...],
+        client_host: str | None,
+    ) -> list[str]:
         normalized = []
         for url in urls:
-            normalized_url = normalize_url(url)
+            normalized_url = normalize_url(url, allowed_hosts, client_host)
             if normalized_url is None:
-                raise CommandError(f"Start URL must be an internal path: {url!r}.")
+                raise CommandError(
+                    f"Start URL must be an internal path or on an allowed host: "
+                    f"{url!r}."
+                )
             normalized.append(normalized_url)
         return normalized
 
@@ -436,6 +483,7 @@ class Command(RichCommand):
         verbosity: int = 1,
         status: Any = None,
         code_namespace: dict[str, Any] | None = None,
+        client_host: str | None = None,
     ) -> CrawlResult:
         queue = deque(QueueItem(url, 0) for url in start_urls)
         seen: set[str] = set()
@@ -457,10 +505,17 @@ class Command(RichCommand):
             if update_status is not None:
                 update_status(f"Crawling URL {len(seen)}…")
 
+            path = item.url
+            headers: dict[str, str] = {}
+            url_parts = urlsplit(item.url)
+            if url_parts.netloc:
+                path = urlunsplit(("", "", url_parts.path, url_parts.query, ""))
+                headers["Host"] = url_parts.netloc
+
             try:
                 if verbosity >= 2:
                     self.console.print(item.url)
-                response = client.get(item.url)
+                response = client.get(path, headers=headers)
             except Exception:
                 _exc = sys.exc_info()
                 error = CrawlError(
@@ -476,7 +531,7 @@ class Command(RichCommand):
                 location = response.headers.get("Location")
                 if location:
                     linked_url = normalize_url(
-                        urljoin(item.url, location), allowed_hosts
+                        urljoin(item.url, location), allowed_hosts, client_host
                     )
                     if linked_url is not None and linked_url not in seen:
                         queue.append(QueueItem(linked_url, item.depth))
@@ -504,7 +559,9 @@ class Command(RichCommand):
                     self.report_error(self.console, code_error)
 
             for href in links:
-                linked_url = normalize_url(urljoin(item.url, href), allowed_hosts)
+                linked_url = normalize_url(
+                    urljoin(item.url, href), allowed_hosts, client_host
+                )
 
                 if linked_url is not None and linked_url not in seen:
                     queue.append(QueueItem(linked_url, item.depth + 1))
@@ -525,7 +582,7 @@ class Command(RichCommand):
         if max_query_variants is None:
             return True
         parts = urlsplit(url)
-        variants = query_variants.setdefault(parts.path, set())
+        variants = query_variants.setdefault(f"{parts.netloc}{parts.path}", set())
         if parts.query in variants:
             return True
         if len(variants) >= max_query_variants:
