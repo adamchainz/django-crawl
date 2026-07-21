@@ -7,6 +7,7 @@ import time
 import warnings
 from contextlib import nullcontext
 from io import StringIO
+from unittest import mock
 from unittest.mock import PropertyMock, patch
 
 import pytest
@@ -198,6 +199,57 @@ class CrawlCommandTests(TestCase):
             "🦋 Crawled 3 URLs, encountered 0 errors, "
             "stopped due to finding no more links.\n"
         )
+        assert err == ""
+        assert returncode == 0
+
+    def test_exclude_skips_matching_links(self):
+        out, err, returncode = run_command(
+            "crawl",
+            "/",
+            "--depth",
+            "1",
+            "--exclude",
+            "^/bad/",
+            "--exclude",
+            "^/not-found/",
+        )
+
+        note_prefix = "[NOTE] " if sys.version_info >= (3, 11) else ""
+        assert returncode == 1
+        assert out.splitlines() == [
+            "🐛 Crawling up to 1000 URLs",
+            *([mock.ANY] * 99),  # Traceback
+            "ValueError: broken",
+            f"{note_prefix}URL: /server-error/",
+            f"{note_prefix}HTTP 500 Internal Server Error",
+            "🦋 Crawled 3 URLs, encountered 1 error, stopped due to finding no more links.",
+        ]
+
+        assert err == ""
+
+    def test_exclude_skips_matching_redirect_targets(self):
+        out, err, returncode = run_command(
+            "crawl", "/redirect/", "--depth", "0", "--exclude", "^/target/"
+        )
+
+        assert out.splitlines() == [
+            "🐛 Crawling up to 1000 URLs",
+            "🦋 Crawled 1 URL, encountered 0 errors, "
+            "stopped due to finding no more links.",
+        ]
+        assert err == ""
+        assert returncode == 0
+
+    def test_exclude_does_not_apply_to_start_urls(self):
+        out, err, returncode = run_command(
+            "crawl", "/ok/", "--depth", "0", "--exclude", "^/ok/"
+        )
+
+        assert out.splitlines() == [
+            "🐛 Crawling up to 1000 URLs",
+            "🦋 Crawled 1 URL, encountered 0 errors, "
+            "stopped due to finding no more links.",
+        ]
         assert err == ""
         assert returncode == 0
 
