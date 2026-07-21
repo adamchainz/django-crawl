@@ -201,6 +201,31 @@ class CrawlCommandTests(TestCase):
         assert err == ""
         assert returncode == 0
 
+    def test_crawl_serves_static_files(self):
+        out, err, returncode = run_command("crawl", "/assets/", "--depth", "1")
+
+        assert returncode == 1
+        assert out.splitlines() == [
+            "🐛 Crawling up to 1000 URLs",
+            "URL: /static/missing.js",
+            "HTTP 404 Not Found",
+            "🦋 Crawled 4 URLs, encountered 1 error, stopped due to finding no more links.",
+        ]
+        assert err == ""
+
+    def test_client_without_staticfiles_uses_plain_handler(self):
+        with override_settings(
+            INSTALLED_APPS=["django.contrib.contenttypes", "django_crawl"]
+        ):
+            client = crawl.CrawlClient()
+
+            assert not isinstance(client.handler, crawl.StaticFilesClientHandler)
+
+    def test_client_with_staticfiles_uses_static_handler(self):
+        client = crawl.CrawlClient()
+
+        assert isinstance(client.handler, crawl.StaticFilesClientHandler)
+
     def test_crawl_skips_extraction_for_plain_text(self):
         out, err, returncode = run_command("crawl", "/plain/", "--depth", "1")
 

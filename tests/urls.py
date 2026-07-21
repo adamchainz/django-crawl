@@ -88,6 +88,18 @@ def needs_host(request: HttpRequest) -> HttpResponse:
     return HttpResponse("forbidden", status=403)
 
 
+def assets(request: HttpRequest) -> HttpResponse:
+    return HttpResponse(
+        '<link rel="stylesheet" href="/static/present.css">'
+        '<link rel="stylesheet" href="/static/routed.css">'
+        '<script src="/static/missing.js"></script>'
+    )
+
+
+def routed_css(request: HttpRequest) -> HttpResponse:
+    return HttpResponse("body {}", content_type="text/css")
+
+
 def cross_host_links(request: HttpRequest) -> HttpResponse:
     return HttpResponse('<a href="https://docs.example.com/needs-host/">docs</a>')
 
@@ -147,6 +159,8 @@ urlpatterns = [
     path("needs-setup/", needs_setup),
     path("needs-host/", needs_host),
     path("cross-host/", cross_host_links),
+    path("assets/", assets),
+    path("static/routed.css", routed_css),
     path("plain/", plain),
     path("sitemap.xml", sitemap),
     path("feed.rss", feed),

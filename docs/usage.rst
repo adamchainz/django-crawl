@@ -9,6 +9,10 @@ It always follows relative links, and it follows absolute ``http(s)`` links when
 Links to another allowed host are requested with that host in the ``Host`` header, so host-based routing works.
 It only makes ``GET`` requests.
 
+Asset links, like those in ``<img src>`` and ``<script src>``, are checked too.
+If ``django.contrib.staticfiles`` is installed, the command serves static file URLs that your URL configuration or middleware doesn’t otherwise handle, using the staticfiles finders like ``runserver`` does.
+This means missing static files are reported as broken links, without needing any static-serving setup.
+
 To get started, run the ``crawl`` management command:
 
 .. code-block:: console

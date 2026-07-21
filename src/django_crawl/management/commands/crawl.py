@@ -19,17 +19,21 @@ from enum import Enum
 from functools import partial
 from types import TracebackType
 from typing import Any
-from urllib.parse import urldefrag, urljoin, urlsplit, urlunsplit
+from urllib.parse import urldefrag, urljoin, urlparse, urlsplit, urlunsplit
 
 from django.apps import apps
 from django.conf import settings as settings
 from django.contrib.auth import get_user_model as get_user_model
+from django.contrib.staticfiles.handlers import StaticFilesHandlerMixin
 from django.core.exceptions import FieldDoesNotExist as FieldDoesNotExist
 from django.core.exceptions import MultipleObjectsReturned as MultipleObjectsReturned
 from django.core.exceptions import ObjectDoesNotExist as ObjectDoesNotExist
+from django.core.handlers.base import BaseHandler
 from django.core.management.base import CommandError as CommandError
+from django.http import Http404
 from django.http.request import validate_host
 from django.test import Client, override_settings
+from django.test.client import ClientHandler
 from django_rich.management import RichCommand
 from rich.console import Console
 from rich.traceback import Traceback
@@ -234,6 +238,40 @@ class PassthroughStream:
         self.output.flush()
 
 
+class StaticFilesClientHandler(StaticFilesHandlerMixin, ClientHandler):
+    """
+    Test client handler that serves static files with the staticfiles
+    finders, like runserver, when the URL isn't otherwise handled. This
+    allows checking asset links without static-serving URL configuration.
+    """
+
+    # The mixin no-ops load_middleware for wrapping handlers, but this
+    # handler serves regular requests itself, so restore it.
+    load_middleware = BaseHandler.load_middleware
+
+    def __init__(self, enforce_csrf_checks: bool = True) -> None:
+        super().__init__(enforce_csrf_checks)
+        self.base_url = urlparse(self.get_base_url())
+
+    def get_response(self, request: Any) -> Any:
+        response = BaseHandler.get_response(self, request)
+        if response.status_code == 404 and self._should_handle(request.path):
+            try:
+                return self.serve(request)
+            except Http404:
+                pass
+        return response
+
+
+class CrawlClient(Client):
+    """Test client that serves static files for asset URLs, like runserver."""
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        if apps.is_installed("django.contrib.staticfiles") and settings.STATIC_URL:
+            self.handler = StaticFilesClientHandler(self.handler.enforce_csrf_checks)
+
+
 class Command(RichCommand):
     help = "Crawl the Django site with the test client and report broken pages."
 
@@ -300,7 +338,7 @@ class Command(RichCommand):
         code: str | None = options["code"]
         verbosity: int = options["verbosity"]
 
-        client = Client(HTTP_HOST=TESTSERVER)
+        client = CrawlClient(HTTP_HOST=TESTSERVER)
         namespace = self.setup_namespace(client)
         user = self.configure_client(client, options, namespace)
 
@@ -570,6 +608,11 @@ class Command(RichCommand):
 
                 if linked_url is not None and linked_url not in seen:
                     queue.append(QueueItem(linked_url, item.depth + 1))
+
+            # Release unconsumed streaming responses, e.g. served static
+            # files, which otherwise hold their files open.
+            if response.streaming and not response.closed:
+                response.close()
 
         return CrawlResult(count=len(seen), errors=errors, stop_reason=stop_reason)
 
