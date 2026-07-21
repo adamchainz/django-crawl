@@ -510,7 +510,7 @@ class Command(RichCommand):
             url_parts = urlsplit(item.url)
             if url_parts.netloc:
                 path = urlunsplit(("", "", url_parts.path, url_parts.query, ""))
-                headers["Host"] = url_parts.netloc
+                headers["host"] = url_parts.netloc
 
             if verbosity >= 2:
                 self.console.print(item.url, markup=False, soft_wrap=True)
@@ -529,7 +529,7 @@ class Command(RichCommand):
                 continue
 
             if response.status_code in (301, 302, 303, 307, 308):
-                location = response.headers.get("Location")
+                location = response.headers.get("location")
                 if location:
                     linked_url = normalize_url(
                         urljoin(item.url, location), allowed_hosts, client_host

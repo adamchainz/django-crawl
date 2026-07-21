@@ -8,7 +8,7 @@ from justhtml import JustHTML
 
 
 def is_html(response: HttpResponseBase) -> bool:
-    content_type = response.headers.get("Content-Type", "")
+    content_type = response.headers.get("content-type", "")
     media_type = content_type.split(";", 1)[0].strip().lower()
     return media_type == "text/html"
 
@@ -16,11 +16,11 @@ def is_html(response: HttpResponseBase) -> bool:
 def extract_links(response: HttpResponseBase) -> list[str]:
     links: list[str] = []
 
-    link_header = response.headers.get("Link")
+    link_header = response.headers.get("link")
     if link_header:
         links.extend(parse_link_header(link_header))
 
-    refresh_header = response.headers.get("Refresh")
+    refresh_header = response.headers.get("refresh")
     if refresh_header:
         refresh_url = parse_refresh(refresh_header)
         if refresh_url:
@@ -96,6 +96,29 @@ def extract_links(response: HttpResponseBase) -> list[str]:
     return links
 
 
+_LINK_HEADER_URL_RE = re.compile(r"<([^>]*)>")
+
+
+def parse_link_header(header: str) -> list[str]:
+    """Extract URLs from an RFC 8288 Link header value."""
+    return _LINK_HEADER_URL_RE.findall(header)
+
+
+_REFRESH_RE = re.compile(
+    r"""[;,]\s*(?:url\s*=\s*)?(?:"([^"]*)"|'([^']*)'|(\S*))""",
+    re.IGNORECASE,
+)
+
+
+def parse_refresh(content: str) -> str | None:
+    """Extract the URL from a `Refresh` header or `<meta http-equiv="refresh">` value."""
+    match = _REFRESH_RE.search(content)
+    if match is None:
+        return None
+    url = next((g for g in match.groups() if g), "")
+    return url or None
+
+
 def parse_srcset(value: str) -> list[str]:
     """
     Extract URLs from a ``srcset`` attribute value.
@@ -124,26 +147,3 @@ def parse_srcset(value: str) -> list[str]:
         if url:
             urls.append(url)
     return urls
-
-
-_LINK_HEADER_URL_RE = re.compile(r"<([^>]*)>")
-
-
-def parse_link_header(header: str) -> list[str]:
-    """Extract URLs from an RFC 8288 Link header value."""
-    return _LINK_HEADER_URL_RE.findall(header)
-
-
-_REFRESH_RE = re.compile(
-    r"""[;,]\s*(?:url\s*=\s*)?(?:"([^"]*)"|'([^']*)'|(\S*))""",
-    re.IGNORECASE,
-)
-
-
-def parse_refresh(content: str) -> str | None:
-    """Extract the URL from a `Refresh` header or `<meta http-equiv="refresh">` value."""
-    match = _REFRESH_RE.search(content)
-    if match is None:
-        return None
-    url = next((g for g in match.groups() if g), "")
-    return url or None
