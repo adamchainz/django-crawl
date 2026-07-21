@@ -493,7 +493,8 @@ class Command(RichCommand):
             code_namespace = {}
         update_status = getattr(status, "update", None)
 
-        while queue and len(seen) < max_urls:
+        stop_reason = StopReason.NO_MORE_LINKS
+        while queue:
             item = queue.popleft()
             if item.url in seen:
                 continue
@@ -501,6 +502,9 @@ class Command(RichCommand):
                 item.url, query_variants, max_query_variants
             ):
                 continue
+            if len(seen) >= max_urls:
+                stop_reason = StopReason.MAX_URLS
+                break
             seen.add(item.url)
             if update_status is not None:
                 update_status(f"Crawling URL {len(seen)}…")
@@ -566,11 +570,6 @@ class Command(RichCommand):
                 if linked_url is not None and linked_url not in seen:
                     queue.append(QueueItem(linked_url, item.depth + 1))
 
-        stop_reason = (
-            StopReason.MAX_URLS
-            if any(item.url not in seen for item in queue)
-            else StopReason.NO_MORE_LINKS
-        )
         return CrawlResult(count=len(seen), errors=errors, stop_reason=stop_reason)
 
     def allow_query_variant(
