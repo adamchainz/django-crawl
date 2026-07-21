@@ -97,12 +97,32 @@ def extract_links(response: HttpResponseBase) -> list[str]:
 
 
 def parse_srcset(value: str) -> list[str]:
-    """Extract URLs from a ``srcset`` attribute value."""
+    """
+    Extract URLs from a ``srcset`` attribute value.
+
+    Follows the HTML specification's parsing model: candidates are separated
+    by commas, but a URL may itself contain commas as long as it does not
+    start or end with one, so split on whitespace and only treat trailing
+    commas as separators.
+    """
     urls = []
-    for candidate in value.split(","):
-        parts = candidate.split()
-        if parts:
-            urls.append(parts[0])
+    pos = 0
+    length = len(value)
+    while pos < length:
+        while pos < length and (value[pos].isspace() or value[pos] == ","):
+            pos += 1
+        start = pos
+        while pos < length and not value[pos].isspace():
+            pos += 1
+        url = value[start:pos]
+        if url.endswith(","):
+            url = url.rstrip(",")
+        else:
+            # Skip the descriptor, up to the next comma.
+            while pos < length and value[pos] != ",":
+                pos += 1
+        if url:
+            urls.append(url)
     return urls
 
 
