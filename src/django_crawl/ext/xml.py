@@ -26,8 +26,13 @@ def extract_links(response: HttpResponseBase) -> list[str]:
         # Reading consumed the streaming iterator; restore the content so
         # later readers still see the body.
         response.streaming_content = [raw]  # type: ignore[attr-defined]
+    # Decode with the response's charset, since ElementTree assumes UTF-8 for
+    # bytes. Parsing the decoded string makes the HTTP charset take precedence
+    # over any in-document encoding declaration, which ElementTree ignores for
+    # strings.
+    text = raw.decode(response.charset or "utf-8", errors="replace")
     try:
-        root = ElementTree.fromstring(raw)
+        root = ElementTree.fromstring(text)
     except ElementTree.ParseError:
         return []
 
