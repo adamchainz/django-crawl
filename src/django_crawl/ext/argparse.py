@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from argparse import ArgumentTypeError
 
 
@@ -27,3 +28,10 @@ def max_query_variants(value: str) -> int | None:
     if value == "unlimited":
         return None
     return positive_int(value)
+
+
+def regex(value: str) -> re.Pattern[str]:
+    try:
+        return re.compile(value)
+    except re.error as exc:
+        raise ArgumentTypeError(f"invalid regular expression: {exc}") from None

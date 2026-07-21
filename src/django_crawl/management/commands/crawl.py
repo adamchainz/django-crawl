@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import logging
+import re
 import sys
 import threading
 import warnings
 from argparse import ArgumentParser
 from collections import deque
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from contextlib import (
     ExitStack,
     contextmanager,
@@ -42,6 +43,7 @@ from django_crawl.ext.argparse import (
     max_query_variants as max_query_variants_type,
 )
 from django_crawl.ext.argparse import non_negative_int, positive_int
+from django_crawl.ext.argparse import regex as regex_type
 from django_crawl.ext.html import extract_links as extract_html_links
 from django_crawl.ext.html import is_html
 from django_crawl.ext.xml import extract_links as extract_xml_links
@@ -139,6 +141,10 @@ def split_host(netloc: str) -> tuple[str, int | None] | None:
     if ":" in host:
         host = f"[{host}]"
     return host, port
+
+
+def excluded(url: str, patterns: Sequence[re.Pattern[str]]) -> bool:
+    return any(pattern.search(url) for pattern in patterns)
 
 
 def pluralize(count: int, singular: str, plural: str) -> str:
@@ -305,6 +311,17 @@ class Command(RichCommand):
                 f"Defaults to {DEFAULT_MAX_QUERY_VARIANTS}. Use 'unlimited' to disable."
             ),
         )
+        parser.add_argument(
+            "--exclude",
+            action="append",
+            default=[],
+            type=regex_type,
+            metavar="REGEX",
+            help=(
+                "Skip crawling discovered URLs matching this regular "
+                "expression. May be repeated."
+            ),
+        )
         login_group = parser.add_mutually_exclusive_group()
         login_group.add_argument(
             "--no-login",
@@ -336,6 +353,7 @@ class Command(RichCommand):
         max_urls: int = options["max_urls"]
         max_query_variants: int | None = options["max_query_variants"]
         code: str | None = options["code"]
+        exclude: list[re.Pattern[str]] = options["exclude"]
         verbosity: int = options["verbosity"]
 
         client = CrawlClient(HTTP_HOST=TESTSERVER)
@@ -392,6 +410,7 @@ class Command(RichCommand):
                 status=status,
                 code_namespace=namespace,
                 client_host=http_host,
+                exclude=exclude,
             )
 
         match result.stop_reason:
@@ -522,6 +541,7 @@ class Command(RichCommand):
         status: Any = None,
         code_namespace: dict[str, Any] | None = None,
         client_host: str | None = None,
+        exclude: Sequence[re.Pattern[str]] = (),
     ) -> CrawlResult:
         queue = deque(QueueItem(url, 0) for url in start_urls)
         seen: set[str] = set()
@@ -576,7 +596,11 @@ class Command(RichCommand):
                     linked_url = normalize_url(
                         urljoin(item.url, location), allowed_hosts, client_host
                     )
-                    if linked_url is not None and linked_url not in seen:
+                    if (
+                        linked_url is not None
+                        and linked_url not in seen
+                        and not excluded(linked_url, exclude)
+                    ):
                         queue.append(QueueItem(linked_url, item.depth))
                 continue
             if response.status_code >= 400:
@@ -606,7 +630,11 @@ class Command(RichCommand):
                     urljoin(item.url, href), allowed_hosts, client_host
                 )
 
-                if linked_url is not None and linked_url not in seen:
+                if (
+                    linked_url is not None
+                    and linked_url not in seen
+                    and not excluded(linked_url, exclude)
+                ):
                     queue.append(QueueItem(linked_url, item.depth + 1))
 
             # Release unconsumed streaming responses, e.g. served static

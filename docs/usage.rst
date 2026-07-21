@@ -47,6 +47,16 @@ Use ``--max-query-variants`` to change this limit, or ``unlimited`` to disable i
     $ ./manage.py crawl --max-query-variants 20
     $ ./manage.py crawl --max-query-variants unlimited
 
+Use ``--exclude`` to skip crawling discovered URLs that match a regular expression, searched against the normalized URL, like ``/reports/?year=2026``.
+Repeat the option to exclude several patterns:
+
+.. code-block:: console
+
+    $ ./manage.py crawl --exclude '^/reports/' --exclude 'format=csv'
+
+``--exclude`` applies to discovered links and redirect targets.
+Start URLs passed on the command line are always crawled.
+
 Use ``-v 2`` (``--verbosity 2``) or higher to report each URL as it is crawled:
 
 .. code-block:: console

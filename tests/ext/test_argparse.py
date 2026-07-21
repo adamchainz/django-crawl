@@ -33,3 +33,13 @@ class ArgparseTests(ParametrizedTestCase, SimpleTestCase):
 
     def test_max_query_variants_accepts_unlimited(self):
         assert ext_argparse.max_query_variants("unlimited") is None
+
+    def test_regex_accepts_valid_patterns(self):
+        pattern = ext_argparse.regex("^/reports/")
+
+        assert pattern.search("/reports/2026/")
+        assert not pattern.search("/other/")
+
+    def test_regex_rejects_invalid_patterns(self):
+        with self.assertRaisesRegex(ArgumentTypeError, "invalid regular expression"):
+            ext_argparse.regex("(unclosed")
