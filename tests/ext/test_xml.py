@@ -99,8 +99,36 @@ class ExtractLinksTests(SimpleTestCase):
             "https://example.com/one/",
         ]
 
+    def test_sitemap_in_response_charset_without_declaration(self):
+        response = HttpResponse(
+            "<urlset><url><loc>/café/</loc></url></urlset>".encode("iso-8859-1"),
+            content_type="application/xml; charset=iso-8859-1",
+        )
+
+        assert extract_links(response) == ["/café/"]
+
+    def test_sitemap_with_matching_encoding_declaration(self):
+        document = (
+            '<?xml version="1.0" encoding="iso-8859-1"?>'
+            "<urlset><url><loc>/café/</loc></url></urlset>"
+        )
+        response = HttpResponse(
+            document.encode("iso-8859-1"),
+            content_type="application/xml; charset=iso-8859-1",
+        )
+
+        assert extract_links(response) == ["/café/"]
+
     def test_invalid_xml(self):
         response = HttpResponse("<urlset", content_type="application/xml")
+
+        assert extract_links(response) == []
+
+    def test_invalid_xml_with_encoding_declaration(self):
+        response = HttpResponse(
+            '<?xml version="1.0" encoding="UTF-8"?><urlset',
+            content_type="application/xml",
+        )
 
         assert extract_links(response) == []
 
