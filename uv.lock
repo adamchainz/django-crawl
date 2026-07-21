@@ -315,9 +315,9 @@ name = "django"
 version = "5.2.14"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
+    "python_full_version >= '3.12'",
     "python_full_version == '3.11.*'",
     "python_full_version < '3.11'",
-    "python_full_version >= '3.12'",
 ]
 dependencies = [
     { name = "asgiref", marker = "(python_full_version < '3.12' and extra != 'group-12-django-crawl-django51') or extra == 'group-12-django-crawl-django52' or (extra == 'group-12-django-crawl-django51' and extra == 'group-12-django-crawl-django60') or (extra == 'group-12-django-crawl-django51' and extra == 'group-12-django-crawl-django61') or (extra == 'group-12-django-crawl-django60' and extra == 'group-12-django-crawl-django61')" },
@@ -365,7 +365,7 @@ wheels = [
 
 [[package]]
 name = "django-crawl"
-version = "0"
+version = "1.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "django", version = "5.1.15", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'group-12-django-crawl-django51' or (extra == 'group-12-django-crawl-django52' and extra == 'group-12-django-crawl-django60') or (extra == 'group-12-django-crawl-django52' and extra == 'group-12-django-crawl-django61') or (extra == 'group-12-django-crawl-django60' and extra == 'group-12-django-crawl-django61')" },
