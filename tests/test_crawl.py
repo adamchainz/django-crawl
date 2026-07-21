@@ -7,7 +7,6 @@ import time
 import warnings
 from contextlib import nullcontext
 from io import StringIO
-from unittest import mock
 from unittest.mock import PropertyMock, patch
 
 import pytest
@@ -36,19 +35,23 @@ class CrawlCommandTests(TestCase):
     def test_crawl_reports_all_status_errors_and_tracebacks(self):
         out, err, returncode = run_command("crawl", "/", "--depth", "1")
 
+        note_prefix = "[NOTE] " if sys.version_info >= (3, 11) else ""
         assert returncode == 1
-        assert "🐛 Crawling up to 1000 URLs\n" in out
-        assert "URL: /bad/" in out
-        assert "HTTP 400 Bad Request" in out
-        assert "URL: /not-found/" in out
-        assert "HTTP 404 Not Found" in out
-        assert "URL: /server-error/" in out
-        assert "HTTP 500 Internal Server Error" in out
-        assert "ValueError: broken" in out
-        assert (
-            "🦋 Crawled 5 URLs, encountered 3 errors, "
-            "stopped due to finding no more links."
-        ) in out
+        lines = out.splitlines()
+        assert lines[:5] == [
+            "🐛 Crawling up to 1000 URLs",
+            "URL: /bad/",
+            "HTTP 400 Bad Request",
+            "URL: /not-found/",
+            "HTTP 404 Not Found",
+        ]
+        # Traceback in missed lines (length depends on environment)
+        assert lines[-4:] == [
+            "ValueError: broken",
+            f"{note_prefix}URL: /server-error/",
+            f"{note_prefix}HTTP 500 Internal Server Error",
+            "🦋 Crawled 5 URLs, encountered 3 errors, stopped due to finding no more links.",
+        ]
         assert err == ""
 
     def test_crawl_follows_redirects(self):
@@ -216,9 +219,11 @@ class CrawlCommandTests(TestCase):
 
         note_prefix = "[NOTE] " if sys.version_info >= (3, 11) else ""
         assert returncode == 1
-        assert out.splitlines() == [
-            "🐛 Crawling up to 1000 URLs",
-            *([mock.ANY] * 99),  # Traceback
+        lines = out.splitlines()
+        assert lines[:1] == ["🐛 Crawling up to 1000 URLs"]
+        # lines[1:-4] is a rendered traceback, whose length is environment
+        # dependent (e.g. the length of paths in frames).
+        assert lines[-4:] == [
             "ValueError: broken",
             f"{note_prefix}URL: /server-error/",
             f"{note_prefix}HTTP 500 Internal Server Error",
@@ -318,14 +323,18 @@ class CrawlCommandTests(TestCase):
             "raise ValueError('check failed')",
         )
 
+        note_prefix = "[NOTE] " if sys.version_info >= (3, 11) else ""
         assert returncode == 1
-        assert "🐛 Crawling up to 1000 URLs\n" in out
-        assert "Response code raised an exception." in out
-        assert "ValueError: check failed" in out
-        assert (
-            "🦋 Crawled 1 URL, encountered 1 error, "
-            "stopped due to finding no more links."
-        ) in out
+        lines = out.splitlines()
+        assert lines[:1] == ["🐛 Crawling up to 1000 URLs"]
+        # lines[1:-4] is a rendered traceback, whose length is environment
+        # dependent (e.g. the length of paths in frames).
+        assert lines[-4:] == [
+            "ValueError: check failed",
+            f"{note_prefix}URL: /",
+            f"{note_prefix}Response code raised an exception.",
+            "🦋 Crawled 1 URL, encountered 1 error, stopped due to finding no more links.",
+        ]
         assert err == ""
 
     def test_crawl_code_shares_setup_namespace(self):
@@ -452,32 +461,46 @@ class CrawlCommandTests(TestCase):
         # The index page links to https://example.com/external/ — with a
         # wildcard in ALLOWED_HOSTS it must still be treated as external,
         # not crawled as the local path /external/.
-        assert "/external/" not in out
-        assert (
-            "🦋 Crawled 5 URLs, encountered 3 errors, "
-            "stopped due to finding no more links."
-        ) in out
+        note_prefix = "[NOTE] " if sys.version_info >= (3, 11) else ""
+        lines = out.splitlines()
+        assert lines[:5] == [
+            "🐛 Crawling up to 1000 URLs",
+            "URL: /bad/",
+            "HTTP 400 Bad Request",
+            "URL: /not-found/",
+            "HTTP 404 Not Found",
+        ]
+        # lines[5:-4] is a rendered traceback, whose length is environment
+        # dependent (e.g. the length of paths in frames).
+        assert lines[-4:] == [
+            "ValueError: broken",
+            f"{note_prefix}URL: /server-error/",
+            f"{note_prefix}HTTP 500 Internal Server Error",
+            "🦋 Crawled 5 URLs, encountered 3 errors, stopped due to finding no more links.",
+        ]
         assert returncode == 1
 
     def test_setup_negative_paths_report_errors(self):
         out, err, returncode = run_command("crawl", "/needs-setup/", "--depth", "0")
 
-        assert "HTTP 403 Forbidden" in out
-        assert (
-            "🦋 Crawled 1 URL, encountered 1 error, "
-            "stopped due to finding no more links."
-        ) in out
+        assert out.splitlines() == [
+            "🐛 Crawling up to 1000 URLs",
+            "URL: /needs-setup/",
+            "HTTP 403 Forbidden",
+            "🦋 Crawled 1 URL, encountered 1 error, stopped due to finding no more links.",
+        ]
         assert err == ""
         assert returncode == 1
 
     def test_host_negative_path_reports_error(self):
         out, err, returncode = run_command("crawl", "/needs-host/", "--depth", "0")
 
-        assert "HTTP 403 Forbidden" in out
-        assert (
-            "🦋 Crawled 1 URL, encountered 1 error, "
-            "stopped due to finding no more links."
-        ) in out
+        assert out.splitlines() == [
+            "🐛 Crawling up to 1000 URLs",
+            "URL: /needs-host/",
+            "HTTP 403 Forbidden",
+            "🦋 Crawled 1 URL, encountered 1 error, stopped due to finding no more links.",
+        ]
         assert err == ""
         assert returncode == 1
 
@@ -501,7 +524,12 @@ class CrawlCommandTests(TestCase):
         # ALLOWED_HOSTS, Django raises DisallowedHost → HTTP 400. With the
         # fix, testserver is added, so get_host() succeeds and the view
         # returns its normal 403 (wrong host for that view).
-        assert "HTTP 403 Forbidden" in out
+        assert out.splitlines() == [
+            "🐛 Crawling up to 1000 URLs",
+            "URL: /needs-host/",
+            "HTTP 403 Forbidden",
+            "🦋 Crawled 1 URL, encountered 1 error, stopped due to finding no more links.",
+        ]
         assert returncode == 1
 
     def test_verbose_crawl_prints_every_url(self):
