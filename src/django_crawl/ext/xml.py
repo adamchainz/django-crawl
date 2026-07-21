@@ -15,7 +15,7 @@ XML_MEDIA_TYPES = frozenset(
 
 
 def is_xml(response: HttpResponseBase) -> bool:
-    content_type = response.headers.get("Content-Type", "")
+    content_type = response.headers.get("content-type", "")
     media_type = content_type.split(";", 1)[0].strip().lower()
     return media_type in XML_MEDIA_TYPES
 
@@ -43,6 +43,17 @@ def local_name(tag: str) -> str:
     return tag.rpartition("}")[2]
 
 
+def extract_text_links(root: ElementTree.Element, name: str) -> list[str]:
+    links = []
+    for el in root.iter():
+        if local_name(el.tag) != name or not el.text:
+            continue
+        text = el.text.strip()
+        if text:
+            links.append(text)
+    return links
+
+
 def extract_feed_links(root: ElementTree.Element) -> list[str]:
     # RSS link elements hold their URL as text; Atom link elements use an
     # href attribute. Feeds may contain both, e.g. atom:link in RSS.
@@ -57,15 +68,4 @@ def extract_feed_links(root: ElementTree.Element) -> list[str]:
         href = el.attrib.get("href")
         if href:
             links.append(href)
-    return links
-
-
-def extract_text_links(root: ElementTree.Element, name: str) -> list[str]:
-    links = []
-    for el in root.iter():
-        if local_name(el.tag) != name or not el.text:
-            continue
-        text = el.text.strip()
-        if text:
-            links.append(text)
     return links
