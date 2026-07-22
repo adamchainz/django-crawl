@@ -5,7 +5,6 @@ import sys
 from collections import deque
 from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
-from dataclasses import dataclass
 from enum import Enum
 from types import TracebackType
 from typing import Any, cast
@@ -34,19 +33,27 @@ DEFAULT_MAX_QUERY_VARIANTS = 10
 TESTSERVER = "testserver"
 
 
-@dataclass(frozen=True)
 class QueueItem:
-    url: str
-    depth: int
+    __slots__ = ("url", "depth")
+
+    def __init__(self, url: str, depth: int) -> None:
+        self.url = url
+        self.depth = depth
 
 
-@dataclass
 class CrawlError:
-    url: str
-    message: str
-    exc_info: tuple[type[BaseException], BaseException, TracebackType | None] | None = (
-        None
-    )
+    __slots__ = ("url", "message", "exc_info")
+
+    def __init__(
+        self,
+        url: str,
+        message: str,
+        exc_info: tuple[type[BaseException], BaseException, TracebackType | None]
+        | None = None,
+    ) -> None:
+        self.url = url
+        self.message = message
+        self.exc_info = exc_info
 
 
 class StopReason(Enum):
@@ -54,11 +61,15 @@ class StopReason(Enum):
     MAX_URLS = "max_urls"
 
 
-@dataclass
 class CrawlResult:
-    count: int
-    errors: list[CrawlError]
-    stop_reason: StopReason
+    __slots__ = ("count", "errors", "stop_reason")
+
+    def __init__(
+        self, count: int, errors: list[CrawlError], stop_reason: StopReason
+    ) -> None:
+        self.count = count
+        self.errors = errors
+        self.stop_reason = stop_reason
 
 
 class ResponseError(Exception):
