@@ -6,8 +6,7 @@ import sys
 import threading
 import warnings
 from argparse import ArgumentParser
-from collections import deque
-from collections.abc import Iterator, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from contextlib import (
     ExitStack,
     contextmanager,
@@ -15,39 +14,42 @@ from contextlib import (
     redirect_stderr,
     redirect_stdout,
 )
-from dataclasses import dataclass
-from enum import Enum
 from functools import partial
-from types import TracebackType
 from typing import Any
-from urllib.parse import urldefrag, urljoin, urlparse, urlsplit, urlunsplit
 
 from django.apps import apps
 from django.conf import settings as settings
 from django.contrib.auth import get_user_model as get_user_model
-from django.contrib.staticfiles.handlers import StaticFilesHandlerMixin
 from django.core.exceptions import FieldDoesNotExist as FieldDoesNotExist
 from django.core.exceptions import MultipleObjectsReturned as MultipleObjectsReturned
 from django.core.exceptions import ObjectDoesNotExist as ObjectDoesNotExist
-from django.core.handlers.base import BaseHandler
 from django.core.management.base import CommandError as CommandError
-from django.http import Http404
-from django.http.request import validate_host
-from django.test import Client, override_settings
-from django.test.client import ClientHandler
+from django.test import Client
 from django_rich.management import RichCommand
 from rich.console import Console
 from rich.traceback import Traceback
 
+from django_crawl.crawler import DEFAULT_DEPTH as DEFAULT_DEPTH
+from django_crawl.crawler import (
+    DEFAULT_MAX_QUERY_VARIANTS as DEFAULT_MAX_QUERY_VARIANTS,
+)
+from django_crawl.crawler import DEFAULT_MAX_URLS as DEFAULT_MAX_URLS
+from django_crawl.crawler import TESTSERVER as TESTSERVER
+from django_crawl.crawler import CrawlClient as CrawlClient
+from django_crawl.crawler import CrawlError as CrawlError
+from django_crawl.crawler import CrawlResult as CrawlResult
+from django_crawl.crawler import StaticFilesClientHandler as StaticFilesClientHandler
+from django_crawl.crawler import StopReason as StopReason
+from django_crawl.crawler import crawl_urls as crawl_urls
+from django_crawl.crawler import extended_allowed_hosts as extended_allowed_hosts
+from django_crawl.crawler import normalize_start_urls as normalize_start_urls
+from django_crawl.crawler import normalize_url as normalize_url
+from django_crawl.crawler import pluralize as pluralize
 from django_crawl.ext.argparse import (
     max_query_variants as max_query_variants_type,
 )
 from django_crawl.ext.argparse import non_negative_int, positive_int
 from django_crawl.ext.argparse import regex as regex_type
-from django_crawl.ext.html import extract_links as extract_html_links
-from django_crawl.ext.html import is_html
-from django_crawl.ext.xml import extract_links as extract_xml_links
-from django_crawl.ext.xml import is_xml
 
 if sys.version_info >= (3, 11):
     from typing import assert_never
@@ -57,100 +59,12 @@ else:
         raise AssertionError(f"Expected code to be unreachable, but got: {value!r}")
 
 
-DEFAULT_DEPTH = 5
-DEFAULT_MAX_URLS = 1000
-DEFAULT_MAX_QUERY_VARIANTS = 10
-TESTSERVER = "testserver"
-
-
 auth_installed = partial(apps.is_installed, "django.contrib.auth")
-
-
-@dataclass(frozen=True)
-class QueueItem:
-    url: str
-    depth: int
-
-
-@dataclass
-class CrawlError:
-    url: str
-    message: str
-    exc_info: tuple[type[BaseException], BaseException, TracebackType | None] | None = (
-        None
-    )
-
-
-class StopReason(Enum):
-    NO_MORE_LINKS = "no_more_links"
-    MAX_URLS = "max_urls"
-
-
-@dataclass
-class CrawlResult:
-    count: int
-    errors: list[CrawlError]
-    stop_reason: StopReason
 
 
 class SuppressDjangoRequestLogs(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         return False
-
-
-def normalize_url(
-    url: str,
-    allowed_hosts: tuple[str, ...] = (),
-    client_host: str | None = None,
-) -> str | None:
-    url, _fragment = urldefrag(url)
-    parts = urlsplit(url)
-    if parts.scheme and parts.scheme not in ("http", "https"):
-        return None
-    if parts.scheme and not parts.netloc:
-        return None
-    netloc = ""
-    if parts.netloc:
-        host_port = split_host(parts.netloc)
-        if host_port is None:
-            return None
-        host, port = host_port
-        # A '*' entry would make every host look internal, so ignore it.
-        if not validate_host(host, [h for h in allowed_hosts if h != "*"]):
-            return None
-        client_host_port = split_host(client_host) if client_host else None
-        if client_host_port is None or host != client_host_port[0]:
-            # Keep the host so the URL is requested with a matching Host
-            # header, for sites that route on it.
-            netloc = host if port is None else f"{host}:{port}"
-    path = parts.path or "/"
-    if not path.startswith("/"):
-        path = f"/{path}"
-    return urlunsplit(("", netloc, path, parts.query, ""))
-
-
-def split_host(netloc: str) -> tuple[str, int | None] | None:
-    """Extract the lowercased host, without userinfo, and port from a netloc."""
-    parts = urlsplit(f"//{netloc}")
-    try:
-        host, port = parts.hostname, parts.port
-    except ValueError:
-        return None
-    if not host:
-        return None
-    if ":" in host:
-        host = f"[{host}]"
-    return host, port
-
-
-def excluded(url: str, patterns: Sequence[re.Pattern[str]]) -> bool:
-    return any(pattern.search(url) for pattern in patterns)
-
-
-def pluralize(count: int, singular: str, plural: str) -> str:
-    if count == 1:
-        return f"1 {singular}"
-    return f"{count} {plural}"
 
 
 @contextmanager
@@ -242,40 +156,6 @@ class PassthroughStream:
 
     def flush(self) -> None:
         self.output.flush()
-
-
-class StaticFilesClientHandler(StaticFilesHandlerMixin, ClientHandler):
-    """
-    Test client handler that serves static files with the staticfiles
-    finders, like runserver, when the URL isn't otherwise handled. This
-    allows checking asset links without static-serving URL configuration.
-    """
-
-    # The mixin no-ops load_middleware for wrapping handlers, but this
-    # handler serves regular requests itself, so restore it.
-    load_middleware = BaseHandler.load_middleware
-
-    def __init__(self, enforce_csrf_checks: bool = True) -> None:
-        super().__init__(enforce_csrf_checks)
-        self.base_url = urlparse(self.get_base_url())
-
-    def get_response(self, request: Any) -> Any:
-        response = BaseHandler.get_response(self, request)
-        if response.status_code == 404 and self._should_handle(request.path):
-            try:
-                return self.serve(request)
-            except Http404:
-                pass
-        return response
-
-
-class CrawlClient(Client):
-    """Test client that serves static files for asset URLs, like runserver."""
-
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
-        if apps.is_installed("django.contrib.staticfiles") and settings.STATIC_URL:
-            self.handler = StaticFilesClientHandler(self.handler.enforce_csrf_checks)
 
 
 class Command(RichCommand):
@@ -381,18 +261,7 @@ class Command(RichCommand):
             else nullcontext()
         )
         with ExitStack() as stack:
-            if "*" not in settings.ALLOWED_HOSTS:
-                extra = [
-                    h
-                    for h in (TESTSERVER, http_host)
-                    if h and h not in settings.ALLOWED_HOSTS
-                ]
-                if extra:
-                    stack.enter_context(
-                        override_settings(
-                            ALLOWED_HOSTS=[*settings.ALLOWED_HOSTS, *extra]
-                        )
-                    )
+            stack.enter_context(extended_allowed_hosts(TESTSERVER, http_host))
             django_request_logger.addFilter(log_filter)
             stack.callback(django_request_logger.removeFilter, log_filter)
             stack.enter_context(status)
@@ -435,26 +304,12 @@ class Command(RichCommand):
         allowed_hosts: tuple[str, ...] = (),
         client_host: str | None = None,
     ) -> list[str]:
-        if urls:
-            return self.normalize_start_urls(urls, allowed_hosts, client_host)
-        return ["/"]
-
-    def normalize_start_urls(
-        self,
-        urls: list[str],
-        allowed_hosts: tuple[str, ...],
-        client_host: str | None,
-    ) -> list[str]:
-        normalized = []
-        for url in urls:
-            normalized_url = normalize_url(url, allowed_hosts, client_host)
-            if normalized_url is None:
-                raise CommandError(
-                    f"Start URL must be an internal path or on an allowed host: "
-                    f"{url!r}."
-                )
-            normalized.append(normalized_url)
-        return normalized
+        if not urls:
+            return ["/"]
+        try:
+            return normalize_start_urls(urls, allowed_hosts, client_host)
+        except ValueError as exc:
+            raise CommandError(str(exc)) from None
 
     def configure_client(
         self, client: Client, options: dict[str, Any], namespace: dict[str, Any]
@@ -543,129 +398,42 @@ class Command(RichCommand):
         client_host: str | None = None,
         exclude: Sequence[re.Pattern[str]] = (),
     ) -> CrawlResult:
-        queue = deque(QueueItem(url, 0) for url in start_urls)
-        seen: set[str] = set()
-        query_variants: dict[str, set[str]] = {}
-        errors: list[CrawlError] = []
         if code_namespace is None:
             code_namespace = {}
         update_status = getattr(status, "update", None)
 
-        stop_reason = StopReason.NO_MORE_LINKS
-        while queue:
-            item = queue.popleft()
-            if item.url in seen:
-                continue
-            if not self.allow_query_variant(
-                item.url, query_variants, max_query_variants
-            ):
-                continue
-            if len(seen) >= max_urls:
-                stop_reason = StopReason.MAX_URLS
-                break
-            seen.add(item.url)
+        def on_url(url: str, count: int) -> None:
             if update_status is not None:
-                update_status(f"Crawling URL {len(seen)}…")
-
-            path = item.url
-            headers: dict[str, str] = {}
-            url_parts = urlsplit(item.url)
-            if url_parts.netloc:
-                path = urlunsplit(("", "", url_parts.path, url_parts.query, ""))
-                headers["host"] = url_parts.netloc
-
+                update_status(f"Crawling URL {count}…")
             if verbosity >= 2:
-                self.console.print(item.url, markup=False, soft_wrap=True)
+                self.console.print(url, markup=False, soft_wrap=True)
 
-            try:
-                response = client.get(path, headers=headers)
-            except Exception:
-                _exc = sys.exc_info()
-                error = CrawlError(
-                    url=item.url,
-                    message="HTTP 500 Internal Server Error",
-                    exc_info=_exc if _exc[0] is not None else None,
-                )
-                errors.append(error)
-                self.report_error(self.console, error)
-                continue
+        on_response: Callable[[Any, str], CrawlError | None] | None = None
+        if code is not None:
+            response_code = code
 
-            if response.status_code in (301, 302, 303, 307, 308):
-                location = response.headers.get("location")
-                if location:
-                    linked_url = normalize_url(
-                        urljoin(item.url, location), allowed_hosts, client_host
-                    )
-                    if (
-                        linked_url is not None
-                        and linked_url not in seen
-                        and not excluded(linked_url, exclude)
-                    ):
-                        queue.append(QueueItem(linked_url, item.depth))
-                continue
-            if response.status_code >= 400:
-                error = self.status_error(item.url, response)
-                errors.append(error)
-                self.report_error(self.console, error)
-
-            # Extract links before running response code, which may consume
-            # a streaming response's body.
-            links: list[str] = []
-            if item.depth < depth:
-                if is_html(response):
-                    links = extract_html_links(response)
-                elif is_xml(response):
-                    links = extract_xml_links(response)
-
-            if code is not None:
-                code_error = self.run_response_code(
-                    code, code_namespace, response, item.url, status
-                )
-                if code_error is not None:
-                    errors.append(code_error)
-                    self.report_error(self.console, code_error)
-
-            for href in links:
-                linked_url = normalize_url(
-                    urljoin(item.url, href), allowed_hosts, client_host
+            def run_code(response: Any, url: str) -> CrawlError | None:
+                return self.run_response_code(
+                    response_code, code_namespace, response, url, status
                 )
 
-                if (
-                    linked_url is not None
-                    and linked_url not in seen
-                    and not excluded(linked_url, exclude)
-                ):
-                    queue.append(QueueItem(linked_url, item.depth + 1))
+            on_response = run_code
 
-            # Release unconsumed streaming responses, e.g. served static
-            # files, which otherwise hold their files open.
-            if response.streaming and not response.closed:
-                response.close()
+        def on_error(error: CrawlError) -> None:
+            self.report_error(self.console, error)
 
-        return CrawlResult(count=len(seen), errors=errors, stop_reason=stop_reason)
-
-    def allow_query_variant(
-        self,
-        url: str,
-        query_variants: dict[str, set[str]],
-        max_query_variants: int | None,
-    ) -> bool:
-        if max_query_variants is None:
-            return True
-        parts = urlsplit(url)
-        variants = query_variants.setdefault(f"{parts.netloc}{parts.path}", set())
-        if parts.query in variants:
-            return True
-        if len(variants) >= max_query_variants:
-            return False
-        variants.add(parts.query)
-        return True
-
-    def status_error(self, url: str, response: Any) -> CrawlError:
-        return CrawlError(
-            url=url,
-            message=f"HTTP {response.status_code} {response.reason_phrase}",
-            exc_info=getattr(response, "exc_info", None),
+        return crawl_urls(
+            client,
+            start_urls,
+            depth=depth,
+            max_urls=max_urls,
+            max_query_variants=max_query_variants,
+            allowed_hosts=allowed_hosts,
+            client_host=client_host,
+            exclude=exclude,
+            on_url=on_url,
+            on_response=on_response,
+            on_error=on_error,
         )
 
     def run_response_code(

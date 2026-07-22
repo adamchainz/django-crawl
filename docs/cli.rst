@@ -1,5 +1,5 @@
-Usage
-=====
+CLI
+===
 
 django-crawl provides a ``crawl`` management command that iteratively crawls through your site using Django’s test client.
 It renders pages within the same process and avoids serializing requests and responses to HTTP, making it somewhat faster and a lot more flexible than regular HTTP crawlers.

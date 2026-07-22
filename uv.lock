@@ -373,6 +373,7 @@ dependencies = [
     { name = "django", version = "6.0.5", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.12' and extra == 'group-12-django-crawl-django60') or (extra == 'group-12-django-crawl-django60' and extra == 'group-12-django-crawl-django61') or (extra == 'group-12-django-crawl-django51' and extra == 'group-12-django-crawl-django52') or (extra == 'group-12-django-crawl-django51' and extra == 'group-12-django-crawl-django60') or (extra == 'group-12-django-crawl-django51' and extra == 'group-12-django-crawl-django61') or (extra == 'group-12-django-crawl-django52' and extra == 'group-12-django-crawl-django60') or (extra == 'group-12-django-crawl-django52' and extra == 'group-12-django-crawl-django61')" },
     { name = "django", version = "6.1a1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.12' and extra != 'group-12-django-crawl-django51' and extra != 'group-12-django-crawl-django52' and extra != 'group-12-django-crawl-django60') or (extra == 'group-12-django-crawl-django51' and extra == 'group-12-django-crawl-django52') or (extra == 'group-12-django-crawl-django51' and extra == 'group-12-django-crawl-django60') or (extra == 'group-12-django-crawl-django51' and extra == 'group-12-django-crawl-django61') or (extra == 'group-12-django-crawl-django52' and extra == 'group-12-django-crawl-django60') or (extra == 'group-12-django-crawl-django52' and extra == 'group-12-django-crawl-django61') or (extra == 'group-12-django-crawl-django60' and extra == 'group-12-django-crawl-django61')" },
     { name = "django-rich" },
+    { name = "exceptiongroup", marker = "python_full_version < '3.11' or (extra == 'group-12-django-crawl-django51' and extra == 'group-12-django-crawl-django52') or (extra == 'group-12-django-crawl-django51' and extra == 'group-12-django-crawl-django60') or (extra == 'group-12-django-crawl-django51' and extra == 'group-12-django-crawl-django61') or (extra == 'group-12-django-crawl-django52' and extra == 'group-12-django-crawl-django60') or (extra == 'group-12-django-crawl-django52' and extra == 'group-12-django-crawl-django61') or (extra == 'group-12-django-crawl-django60' and extra == 'group-12-django-crawl-django61')" },
     { name = "justhtml" },
     { name = "rich" },
 ]
@@ -410,6 +411,7 @@ test = [
 requires-dist = [
     { name = "django", specifier = ">=5.1" },
     { name = "django-rich", specifier = ">=2" },
+    { name = "exceptiongroup", marker = "python_full_version < '3.11'", specifier = ">=1" },
     { name = "justhtml", specifier = ">=3" },
     { name = "rich", specifier = ">=14.1" },
 ]

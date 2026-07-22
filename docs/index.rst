@@ -17,7 +17,8 @@ This package provides a ``crawl`` management command that crawls your site with 
    :caption: Contents:
 
    installation
-   usage
+   cli
+   api
    changelog
 
 

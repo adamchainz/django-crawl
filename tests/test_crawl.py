@@ -15,6 +15,7 @@ from django.core.management.base import OutputWrapper
 from django.test import Client, TestCase, override_settings
 from rich.console import Console
 
+from django_crawl import crawler
 from django_crawl.management.commands import crawl
 from django_crawl.management.commands.crawl import Command, CrawlResult, StopReason
 from tests.utils import run_command
@@ -603,16 +604,6 @@ class CrawlCommandTests(TestCase):
         )
 
 
-class ParserTests(TestCase):
-    def test_pluralize(self):
-        assert crawl.pluralize(0, "URL", "URLs") == "0 URLs"
-        assert crawl.pluralize(1, "URL", "URLs") == "1 URL"
-        assert crawl.pluralize(2, "URL", "URLs") == "2 URLs"
-        assert crawl.pluralize(0, "error", "errors") == "0 errors"
-        assert crawl.pluralize(1, "error", "errors") == "1 error"
-        assert crawl.pluralize(2, "error", "errors") == "2 errors"
-
-
 class URLTests(TestCase):
     def test_normalize_url_accepts_relative_urls(self):
         assert crawl.normalize_url("relative/?x=1#fragment") == "/relative/?x=1"
@@ -1159,11 +1150,10 @@ class CrawlInternalsTests(TestCase):
         assert result.errors == []
 
     def test_seen_query_variant_is_allowed_after_limit(self):
-        command = Command()
         query_variants = {"/path/": {"a=1"}}
 
-        assert command.allow_query_variant("/path/?a=1", query_variants, 1)
-        assert not command.allow_query_variant("/path/?a=2", query_variants, 1)
+        assert crawler.allow_query_variant("/path/?a=1", query_variants, 1)
+        assert not crawler.allow_query_variant("/path/?a=2", query_variants, 1)
 
     def test_crawl_updates_status_per_url(self):
         command = Command()

@@ -27,4 +27,4 @@ Installation
            ...,
        ]
 
-Now you can run the ``crawl`` management command, as covered in the :doc:`usage documentation <usage>`.
+Now you can crawl your site with either the :doc:`CLI <cli>` or the :doc:`API <api>`.
