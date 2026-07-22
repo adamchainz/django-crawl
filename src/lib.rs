@@ -7,7 +7,6 @@ use scraper::node::{Element, Node};
 /// candidates are separated by commas, but a URL may itself contain commas as
 /// long as it does not start or end with one, so split on whitespace and only
 /// treat trailing commas as separators.
-#[pyfunction]
 fn parse_srcset(value: &str) -> Vec<String> {
     let mut urls = Vec::new();
     let bytes = value.as_bytes();
@@ -37,8 +36,8 @@ fn parse_srcset(value: &str) -> Vec<String> {
     urls
 }
 
-/// Extract the URL from a `<meta http-equiv="refresh">` content value,
-/// matching django_crawl.ext.html.parse_refresh.
+/// Extract the URL from a `Refresh` header or `<meta http-equiv="refresh">` value.
+#[pyfunction]
 fn parse_refresh(content: &str) -> Option<&str> {
     let idx = content.find([';', ','])?;
     let mut rest = content[idx + 1..].trim_start();
@@ -179,7 +178,7 @@ fn extract_links(html: &str) -> (String, Vec<String>) {
 #[pymodule(name = "_extract")]
 fn django_crawl_extract(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(extract_links, m)?)?;
-    m.add_function(wrap_pyfunction!(parse_srcset, m)?)?;
+    m.add_function(wrap_pyfunction!(parse_refresh, m)?)?;
     Ok(())
 }
 
@@ -197,9 +196,22 @@ mod tests {
         );
         assert_eq!(parse_srcset("/a.png 100w,"), vec!["/a.png"]);
         assert_eq!(parse_srcset(" , "), Vec::<String>::new());
+        assert_eq!(parse_srcset("/a.png,/b.png 2x"), vec!["/a.png,/b.png"]);
         assert_eq!(
             parse_srcset("/crop=10,20,300,200/img.jpg 1x"),
             vec!["/crop=10,20,300,200/img.jpg"]
+        );
+        assert_eq!(
+            parse_srcset("/a.png,, ,/b.png 2x"),
+            vec!["/a.png", "/b.png"]
+        );
+        assert_eq!(
+            parse_srcset("/a.png 1x,/b.png 2x"),
+            vec!["/a.png", "/b.png"]
+        );
+        assert_eq!(
+            parse_srcset("data:image/png;base64,iVBORw0KGgo 1x"),
+            vec!["data:image/png;base64,iVBORw0KGgo"]
         );
     }
 

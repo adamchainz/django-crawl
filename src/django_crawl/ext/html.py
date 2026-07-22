@@ -6,7 +6,7 @@ from urllib.parse import urljoin
 from django.http import HttpResponseBase
 
 from django_crawl._extract import extract_links as _extract_links
-from django_crawl._extract import parse_srcset as parse_srcset
+from django_crawl._extract import parse_refresh
 
 
 def is_html(response: HttpResponseBase) -> bool:
@@ -50,18 +50,3 @@ _LINK_HEADER_URL_RE = re.compile(r"<([^>]*)>")
 def parse_link_header(header: str) -> list[str]:
     """Extract URLs from an RFC 8288 Link header value."""
     return _LINK_HEADER_URL_RE.findall(header)
-
-
-_REFRESH_RE = re.compile(
-    r"""[;,]\s*(?:url\s*=\s*)?(?:"([^"]*)"|'([^']*)'|(\S*))""",
-    re.IGNORECASE,
-)
-
-
-def parse_refresh(content: str) -> str | None:
-    """Extract the URL from a `Refresh` header or `<meta http-equiv="refresh">` value."""
-    match = _REFRESH_RE.search(content)
-    if match is None:
-        return None
-    url = next((g for g in match.groups() if g), "")
-    return url or None
