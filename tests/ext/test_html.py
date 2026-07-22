@@ -86,8 +86,8 @@ class ExtractLinksTests(SimpleTestCase):
         assert extract_links(response) == [
             "/area",
             "/style.css",
-            "/frame",
             "/s.js",
+            "/frame",
             "/i.png",
             "/submit",
         ]
@@ -102,11 +102,11 @@ class ExtractLinksTests(SimpleTestCase):
         )
 
         assert extract_links(response) == [
-            "/a.ogg",
             "/v.mp4",
             "/v.jpg",
-            "/a.mp3",
             "/v.vtt",
+            "/a.mp3",
+            "/a.ogg",
             "/o.pdf",
             "/e.svg",
             "/i.png",
@@ -121,10 +121,10 @@ class ExtractLinksTests(SimpleTestCase):
 
         assert extract_links(response) == [
             "/a.png",
-            "/b.png",
             "/a-1x.png",
             "/a-2x.png",
             "/b.webp",
+            "/b.png",
         ]
 
     def test_srcset_resolves_base_href(self):

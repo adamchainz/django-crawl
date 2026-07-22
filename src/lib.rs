@@ -106,16 +106,15 @@ fn form_method(el: &Element) -> String {
     }
 }
 
-/// Extract the base href and link URLs from an HTML document, in the same
-/// order as the former per-selector extraction: grouped by link kind, in
-/// document order within each group.
+/// Extract the base href and link URLs from an HTML document, in document
+/// order. Link order carries no meaning for the crawler.
 #[pyfunction]
 fn extract_links(html: &str) -> (String, Vec<String>) {
     let doc = Html::parse_document(html);
 
     let mut base_href = String::new();
     let mut base_found = false;
-    let mut buckets: [Vec<String>; 17] = std::array::from_fn(|_| Vec::new());
+    let mut links: Vec<String> = Vec::new();
 
     for node in doc.tree.nodes() {
         let Some(el) = node.value().as_element() else {
@@ -128,35 +127,25 @@ fn extract_links(html: &str) -> (String, Vec<String>) {
                     base_found = true;
                 }
             }
-            "a" => push_attr(&mut buckets[0], el, "href"),
-            "area" => push_attr(&mut buckets[1], el, "href"),
-            "link" => push_attr(&mut buckets[2], el, "href"),
-            "iframe" => push_attr(&mut buckets[3], el, "src"),
-            "script" => push_attr(&mut buckets[4], el, "src"),
-            "img" => {
-                push_attr(&mut buckets[5], el, "src");
-                push_srcset(&mut buckets[14], el);
-            }
-            "source" => {
-                push_attr(&mut buckets[6], el, "src");
-                push_srcset(&mut buckets[14], el);
+            "a" | "area" | "link" => push_attr(&mut links, el, "href"),
+            "iframe" | "script" | "audio" | "track" | "embed" => push_attr(&mut links, el, "src"),
+            "img" | "source" => {
+                push_attr(&mut links, el, "src");
+                push_srcset(&mut links, el);
             }
             "video" => {
-                push_attr(&mut buckets[7], el, "src");
-                push_attr(&mut buckets[8], el, "poster");
+                push_attr(&mut links, el, "src");
+                push_attr(&mut links, el, "poster");
             }
-            "audio" => push_attr(&mut buckets[9], el, "src"),
-            "track" => push_attr(&mut buckets[10], el, "src"),
-            "object" => push_attr(&mut buckets[11], el, "data"),
-            "embed" => push_attr(&mut buckets[12], el, "src"),
+            "object" => push_attr(&mut links, el, "data"),
             "input" => {
-                push_attr(&mut buckets[13], el, "src");
-                push_formaction(&mut buckets[15], el, node);
+                push_attr(&mut links, el, "src");
+                push_formaction(&mut links, el, node);
             }
-            "button" => push_formaction(&mut buckets[15], el, node),
+            "button" => push_formaction(&mut links, el, node),
             "form" => {
                 if form_method(el) == "get" {
-                    push_attr(&mut buckets[15], el, "action");
+                    push_attr(&mut links, el, "action");
                 }
             }
             "meta" => {
@@ -165,14 +154,14 @@ fn extract_links(html: &str) -> (String, Vec<String>) {
                     .is_some_and(|value| value.eq_ignore_ascii_case("refresh"))
                     && let Some(url) = parse_refresh(el.attr("content").unwrap_or(""))
                 {
-                    buckets[16].push(url.trim().to_string());
+                    links.push(url.trim().to_string());
                 }
             }
             _ => {}
         }
     }
 
-    (base_href, buckets.into_iter().flatten().collect())
+    (base_href, links)
 }
 
 #[pymodule(name = "_extract")]
@@ -226,12 +215,12 @@ mod tests {
     }
 
     #[test]
-    fn extract_links_groups_by_kind() {
+    fn extract_links_in_document_order() {
         let (base, links) = extract_links(
             "<base href=\"/sub/\"><img src=\"/i.png\"><a href=\"x\">x</a>\
              <form action=\"/f/\"><button formaction=\"/fa/\">b</button></form>",
         );
         assert_eq!(base, "/sub/");
-        assert_eq!(links, vec!["x", "/i.png", "/f/", "/fa/"]);
+        assert_eq!(links, vec!["/i.png", "x", "/f/", "/fa/"]);
     }
 }
