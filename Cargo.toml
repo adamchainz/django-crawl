@@ -1,0 +1,21 @@
+[package]
+name = "django-crawl"
+version = "0.0.0"
+edition = "2024"
+readme = "README.rst"
+
+[dependencies]
+ego-tree = "0.11.0"
+pyo3 = { version = "0.29.0", features = ["abi3-py310"] }
+scraper = "0.27.0"
+
+[features]
+default = ["extension-module"]
+extension-module = ["pyo3/extension-module"]
+
+[lib]
+name = "django_crawl_extract"
+crate-type = ["cdylib", "rlib"]
+
+[profile.release]
+lto = true

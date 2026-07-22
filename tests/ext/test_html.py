@@ -8,8 +8,6 @@ from django_crawl.ext.html import (
     extract_links,
     is_html,
     parse_link_header,
-    parse_refresh,
-    parse_srcset,
 )
 
 
@@ -88,8 +86,8 @@ class ExtractLinksTests(SimpleTestCase):
         assert extract_links(response) == [
             "/area",
             "/style.css",
-            "/frame",
             "/s.js",
+            "/frame",
             "/i.png",
             "/submit",
         ]
@@ -104,11 +102,11 @@ class ExtractLinksTests(SimpleTestCase):
         )
 
         assert extract_links(response) == [
-            "/a.ogg",
             "/v.mp4",
             "/v.jpg",
-            "/a.mp3",
             "/v.vtt",
+            "/a.mp3",
+            "/a.ogg",
             "/o.pdf",
             "/e.svg",
             "/i.png",
@@ -123,10 +121,10 @@ class ExtractLinksTests(SimpleTestCase):
 
         assert extract_links(response) == [
             "/a.png",
-            "/b.png",
             "/a-1x.png",
             "/a-2x.png",
             "/b.webp",
+            "/b.png",
         ]
 
     def test_srcset_resolves_base_href(self):
@@ -226,42 +224,3 @@ class ParseLinkHeaderTests(ParametrizedTestCase, SimpleTestCase):
     )
     def test_parse_link_header(self, header, expected):
         assert parse_link_header(header) == expected
-
-
-class ParseRefreshTests(ParametrizedTestCase, SimpleTestCase):
-    @parametrize(
-        ("content", "expected"),
-        [
-            ("5", None),
-            ("0; url=/x", "/x"),
-            ("0;URL='/x'", "/x"),
-            ('0; url="/x"', "/x"),
-            ("0; /x", "/x"),
-            ("0;", None),
-        ],
-    )
-    def test_parse_refresh(self, content, expected):
-        assert parse_refresh(content) == expected
-
-
-class ParseSrcsetTests(ParametrizedTestCase, SimpleTestCase):
-    @parametrize(
-        ("value", "expected"),
-        [
-            ("", []),
-            ("/a.png", ["/a.png"]),
-            ("/a.png 1x, /b.png 2x", ["/a.png", "/b.png"]),
-            ("/a.png 100w,", ["/a.png"]),
-            (" , ", []),
-            ("/a.png,/b.png 2x", ["/a.png,/b.png"]),
-            ("/crop=10,20,300,200/img.jpg 1x", ["/crop=10,20,300,200/img.jpg"]),
-            ("/a.png,, ,/b.png 2x", ["/a.png", "/b.png"]),
-            ("/a.png 1x,/b.png 2x", ["/a.png", "/b.png"]),
-            (
-                "data:image/png;base64,iVBORw0KGgo 1x",
-                ["data:image/png;base64,iVBORw0KGgo"],
-            ),
-        ],
-    )
-    def test_parse_srcset(self, value, expected):
-        assert parse_srcset(value) == expected

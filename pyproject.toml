@@ -1,8 +1,6 @@
 [build-system]
-build-backend = "setuptools.build_meta"
-requires = [
-  "setuptools>=77",
-]
+build-backend = "maturin"
+requires = [ "maturin>=1.12,<2" ]
 
 [project]
 name = "django-crawl"
@@ -40,7 +38,6 @@ dependencies = [
   "django>=5.1",
   "django-rich>=2",
   "exceptiongroup>=1; python_version<'3.11'",
-  "justhtml>=3",
   "rich>=14.1",
 ]
 urls.Changelog = "https://django-crawl.readthedocs.io/en/latest/changelog.html"
@@ -66,6 +63,14 @@ django51 = [ "django>=5.1a1,<5.2; python_version>='3.10'" ]
 django52 = [ "django>=5.2a1,<6; python_version>='3.10'" ]
 django60 = [ "django>=6a1,<6.1; python_version>='3.12'" ]
 django61 = [ "django>=6.1a1,<6.2; python_version>='3.12'" ]
+
+[tool.maturin]
+module-name = "django_crawl._extract"
+python-source = "src"
+include = [
+  "rust-toolchain.toml",
+]
+strip = true
 
 [tool.uv]
 sources.sphinx-build-compatibility = { git = "https://github.com/readthedocs/sphinx-build-compatibility", rev = "4f304bd4562cdc96316f4fec82b264ca379d23e0" }

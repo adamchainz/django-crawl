@@ -374,7 +374,6 @@ dependencies = [
     { name = "django", version = "6.1a1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.12' and extra != 'group-12-django-crawl-django51' and extra != 'group-12-django-crawl-django52' and extra != 'group-12-django-crawl-django60') or (extra == 'group-12-django-crawl-django51' and extra == 'group-12-django-crawl-django52') or (extra == 'group-12-django-crawl-django51' and extra == 'group-12-django-crawl-django60') or (extra == 'group-12-django-crawl-django51' and extra == 'group-12-django-crawl-django61') or (extra == 'group-12-django-crawl-django52' and extra == 'group-12-django-crawl-django60') or (extra == 'group-12-django-crawl-django52' and extra == 'group-12-django-crawl-django61') or (extra == 'group-12-django-crawl-django60' and extra == 'group-12-django-crawl-django61')" },
     { name = "django-rich" },
     { name = "exceptiongroup", marker = "python_full_version < '3.11' or (extra == 'group-12-django-crawl-django51' and extra == 'group-12-django-crawl-django52') or (extra == 'group-12-django-crawl-django51' and extra == 'group-12-django-crawl-django60') or (extra == 'group-12-django-crawl-django51' and extra == 'group-12-django-crawl-django61') or (extra == 'group-12-django-crawl-django52' and extra == 'group-12-django-crawl-django60') or (extra == 'group-12-django-crawl-django52' and extra == 'group-12-django-crawl-django61') or (extra == 'group-12-django-crawl-django60' and extra == 'group-12-django-crawl-django61')" },
-    { name = "justhtml" },
     { name = "rich" },
 ]
 
@@ -412,7 +411,6 @@ requires-dist = [
     { name = "django", specifier = ">=5.1" },
     { name = "django-rich", specifier = ">=2" },
     { name = "exceptiongroup", marker = "python_full_version < '3.11'", specifier = ">=1" },
-    { name = "justhtml", specifier = ">=3" },
     { name = "rich", specifier = ">=14.1" },
 ]
 
@@ -543,15 +541,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/df/bf/f7da0350254c0ed7c72f3e33cef02e048281fec7ecec5f032d4aac52226b/jinja2-3.1.6.tar.gz", hash = "sha256:0137fb05990d35f1275a587e9aee6d56da821fc83491a0fb838183be43f66d6d", size = 245115, upload-time = "2025-03-05T20:05:02.478Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/62/a1/3d680cbfd5f4b8f15abc1d571870c5fc3e594bb582bc3b64ea099db13e56/jinja2-3.1.6-py3-none-any.whl", hash = "sha256:85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67", size = 134899, upload-time = "2025-03-05T20:05:00.369Z" },
-]
-
-[[package]]
-name = "justhtml"
-version = "3.3.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/69/da/9b79076b4e7a9a05515b691ce3dbc7c6e976fe077112852b1e24dbe9cea5/justhtml-3.3.0.tar.gz", hash = "sha256:30e09062cec79c14b6c6ddd1d0a081af7357199945d8f5c99345ad0f83fb04cf", size = 910160, upload-time = "2026-07-04T14:30:21.31Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/c9/7c/c5d0b1241bb580f8721e4ab04049941f4dfb9d24d274cb053fb26de2695b/justhtml-3.3.0-py3-none-any.whl", hash = "sha256:a97479003d968f85eed002372635cfc3f810f49fb0de43401643d6d8ec104c0d", size = 155044, upload-time = "2026-07-04T14:30:19.805Z" },
 ]
 
 [[package]]
