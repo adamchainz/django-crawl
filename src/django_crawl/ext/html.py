@@ -4,7 +4,9 @@ import re
 from urllib.parse import urljoin
 
 from django.http import HttpResponseBase
-from justhtml import JustHTML
+
+from django_crawl._extract import extract_links as _extract_links
+from django_crawl._extract import parse_srcset as parse_srcset
 
 
 def is_html(response: HttpResponseBase) -> bool:
@@ -32,66 +34,12 @@ def extract_links(response: HttpResponseBase) -> list[str]:
         # later readers still see the body.
         response.streaming_content = [raw]  # type: ignore[attr-defined]
     content = raw.decode(response.charset or "utf-8", errors="replace")
-    document = JustHTML(content, sanitize=False)
 
-    base_href = ""
-    for base in document.query("base[href]"):
-        base_href = base.attrs["href"].strip()
-        break
-
-    def resolve(href: str) -> str:
-        href = href.strip()
-        return urljoin(base_href, href) if base_href else href
-
-    for selector, attr in (
-        ("a[href]", "href"),
-        ("area[href]", "href"),
-        ("link[href]", "href"),
-        ("iframe[src]", "src"),
-        ("script[src]", "src"),
-        ("img[src]", "src"),
-        ("source[src]", "src"),
-        ("video[src]", "src"),
-        ("video[poster]", "poster"),
-        ("audio[src]", "src"),
-        ("track[src]", "src"),
-        ("object[data]", "data"),
-        ("embed[src]", "src"),
-        ("input[src]", "src"),
-    ):
-        for el in document.query(selector):
-            value = el.attrs.get(attr)
-            if value:
-                links.append(resolve(value))
-
-    for el in document.query("img[srcset], source[srcset]"):
-        value = el.attrs.get("srcset")
-        if value:
-            for srcset_url in parse_srcset(value):
-                links.append(resolve(srcset_url))
-
-    for form in document.query("form"):
-        # Non-GET forms would be requested with the wrong method, and GETting
-        # their actions may trigger side effects, e.g. the admin logout form.
-        form_method = form.attrs.get("method", "").strip().lower() or "get"
-        if form_method == "get":
-            action = form.attrs.get("action")
-            if action:
-                links.append(resolve(action))
-        for el in form.query("button[formaction], input[formaction]"):
-            method = el.attrs.get("formmethod", "").strip().lower() or form_method
-            if method != "get":
-                continue
-            formaction = el.attrs.get("formaction")
-            if formaction:
-                links.append(resolve(formaction))
-
-    for meta in document.query("meta[http-equiv]"):
-        if meta.attrs.get("http-equiv", "").lower() != "refresh":
-            continue
-        url = parse_refresh(meta.attrs.get("content", ""))
-        if url:
-            links.append(resolve(url))
+    base_href, hrefs = _extract_links(content)
+    if base_href:
+        links.extend(urljoin(base_href, href) for href in hrefs)
+    else:
+        links.extend(hrefs)
 
     return links
 
@@ -117,33 +65,3 @@ def parse_refresh(content: str) -> str | None:
         return None
     url = next((g for g in match.groups() if g), "")
     return url or None
-
-
-def parse_srcset(value: str) -> list[str]:
-    """
-    Extract URLs from a ``srcset`` attribute value.
-
-    Follows the HTML specification's parsing model: candidates are separated
-    by commas, but a URL may itself contain commas as long as it does not
-    start or end with one, so split on whitespace and only treat trailing
-    commas as separators.
-    """
-    urls = []
-    pos = 0
-    length = len(value)
-    while pos < length:
-        while pos < length and (value[pos].isspace() or value[pos] == ","):
-            pos += 1
-        start = pos
-        while pos < length and not value[pos].isspace():
-            pos += 1
-        url = value[start:pos]
-        if url.endswith(","):
-            url = url.rstrip(",")
-        else:
-            # Skip the descriptor, up to the next comma.
-            while pos < length and value[pos] != ",":
-                pos += 1
-        if url:
-            urls.append(url)
-    return urls

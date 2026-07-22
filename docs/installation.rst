@@ -17,6 +17,9 @@ Installation
 
        python -m pip install django-crawl
 
+   django-crawl’s HTML parser is built in Rust, using the same parser as the Servo browser engine.
+   Binary wheels are provided for common platforms; installing on other platforms requires a `Rust toolchain <https://www.rust-lang.org/tools/install>`__ to build from source.
+
 2. Add django-crawl to your ``INSTALLED_APPS``:
 
    .. code-block:: python

@@ -1,5 +1,8 @@
 ci:
   autoupdate_schedule: monthly
+  skip:
+  - cargo-clippy
+  - cargo-fmt
 
 default_language_version:
   python: python3.14
@@ -63,3 +66,17 @@ repos:
     - django-rich==2.2.0
     - django-stubs==6.0.5
     - unittest-parametrize==1.8.0
+- repo: local
+  hooks:
+  - id: cargo-fmt
+    name: cargo fmt
+    entry: cargo fmt --
+    language: system
+    types: [rust]
+    pass_filenames: false
+  - id: cargo-clippy
+    name: cargo clippy
+    entry: cargo clippy -- -D warnings
+    language: system
+    types: [rust]
+    pass_filenames: false

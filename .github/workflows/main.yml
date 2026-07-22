@@ -12,6 +12,9 @@ concurrency:
   group: ${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 
+env:
+  CARGO_TERM_COLOR: always
+
 jobs:
   tests:
     name: Python ${{ matrix.python-version }}
@@ -52,14 +55,25 @@ jobs:
         include-hidden-files: true
         if-no-files-found: error
 
+  tests-rust:
+    runs-on: ubuntu-24.04
+
+    steps:
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      with:
+        persist-credentials: false
+
+    - name: Run tests
+      run: cargo test --verbose
+
   coverage:
     name: Coverage
     runs-on: ubuntu-24.04
-    needs: tests
+    needs: [tests, tests-rust]
     if: always()
     steps:
     - name: Check all test jobs passed
-      if: needs.tests.result != 'success'
+      if: needs.tests.result != 'success' || needs.tests-rust.result != 'success'
       run: exit 1
 
     - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -98,8 +112,74 @@ jobs:
         name: html-report
         path: htmlcov
 
+  build:
+    name: Build os=${{ matrix.os }} target=${{ matrix.target }} ml=${{ matrix.manylinux || 'auto' }}
+    if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main' || contains(github.event.pull_request.labels.*.name, 'Build')
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - os: linux
+          target: x86_64
+        - os: linux
+          target: aarch64
+        - os: linux
+          target: armv7
+
+          # musllinux
+        - os: linux
+          manylinux: musllinux_1_1
+          target: x86_64
+        - os: linux
+          manylinux: musllinux_1_1
+          target: aarch64
+
+          # macos
+        - os: macos
+          target: x86_64
+        - os: macos
+          target: aarch64
+
+          # windows
+        - os: windows
+          target: x86_64
+        - os: windows
+          target: aarch64
+
+    runs-on: ${{ (matrix.os == 'linux' && matrix.target == 'aarch64' && 'ubuntu-24.04-arm') || (matrix.os == 'linux' && matrix.target == 'armv7' && 'ubuntu-24.04-arm') || (matrix.os == 'linux' && 'ubuntu-24.04') || (matrix.os == 'macos' && matrix.target == 'aarch64' && 'macos-15') || (matrix.os == 'macos' && matrix.target == 'x86_64' && 'macos-15-intel') || (matrix.os == 'windows' && matrix.target == 'aarch64' && 'windows-11-arm') || (matrix.os == 'windows' && 'windows-2022') || 'unknown' }}
+
+    steps:
+    - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      with:
+        persist-credentials: false
+
+    - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+      with:
+        python-version: '3.14'
+
+    - name: Build sdist
+      if: matrix.os == 'linux' && matrix.target == 'x86_64'
+      uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1.51.0
+      with:
+        command: sdist
+        args: --out dist
+
+    - name: Build wheels
+      uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1.51.0
+      with:
+        target: ${{ matrix.target }}
+        manylinux: ${{ matrix.manylinux || 'auto' }}
+        args: --release --locked --out dist
+
+    - run: ${{ (matrix.os == 'windows' && 'dir') || 'ls -lh' }} dist/
+
+    - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: dist-${{ matrix.os }}-${{ matrix.target }}-${{ matrix.manylinux || 'auto' }}
+        path: dist
+
   release:
-    needs: [coverage]
+    needs: [rust, coverage, build]
     if: success() && startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-24.04
     environment: release
@@ -113,11 +193,11 @@ jobs:
       with:
         persist-credentials: false
 
-    - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+    - name: get dist artifacts
+      uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
       with:
-        enable-cache: false
-
-    - name: Build
-      run: uv build
+        merge-multiple: true
+        pattern: dist-*
+        path: dist
 
     - uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # v1.14.0
