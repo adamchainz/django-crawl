@@ -12,6 +12,8 @@ django-crawl documentation
 Welcome to the documentation for django-crawl.
 This package provides a ``crawl`` management command that crawls your site with Django’s test client and reports broken pages.
 
+Read more in `the introductory blog post <https://adamj.eu/tech/2026/07/22/introducing-django-crawl/>`__.
+
 .. toctree::
    :maxdepth: 1
    :caption: Contents:
