@@ -2,6 +2,10 @@
 Changelog
 =========
 
+* Report Django URL name, if any, after URL path on errors.
+
+  `PR #41 <https://github.com/adamchainz/django-crawl/pull/41>`__.
+
 1.1.0 (2026-07-22)
 ------------------
 

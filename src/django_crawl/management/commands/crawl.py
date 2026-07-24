@@ -468,13 +468,16 @@ class Command(RichCommand):
         return None
 
     def report_error(self, console: Console, error: CrawlError) -> None:
+        url_note = f"URL: {error.url}"
+        if error.url_name:
+            url_note += f" ({error.url_name})"
         if error.exc_info is None:
-            console.print(f"[bold red]URL:[/] {error.url}")
+            console.print(f"[bold red]{url_note}[/]")
             console.print(f"[red]{error.message}[/]")
             return
 
         type_, value, traceback = error.exc_info
-        notes = [f"URL: {error.url}", error.message]
+        notes = [url_note, error.message]
         added_notes = hasattr(value, "add_note")
         if added_notes:
             for note in notes:

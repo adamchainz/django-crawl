@@ -18,6 +18,7 @@ from django.http import Http404
 from django.http.request import validate_host
 from django.test import Client, override_settings
 from django.test.client import ClientHandler
+from django.urls import Resolver404
 
 from django_crawl.ext.html import extract_links as extract_html_links
 from django_crawl.ext.html import is_html
@@ -42,7 +43,7 @@ class QueueItem:
 
 
 class CrawlError:
-    __slots__ = ("url", "message", "exc_info")
+    __slots__ = ("url", "message", "exc_info", "url_name")
 
     def __init__(
         self,
@@ -50,10 +51,12 @@ class CrawlError:
         message: str,
         exc_info: tuple[type[BaseException], BaseException, TracebackType | None]
         | None = None,
+        url_name: str | None = None,
     ) -> None:
         self.url = url
         self.message = message
         self.exc_info = exc_info
+        self.url_name = url_name
 
 
 class StopReason(Enum):
@@ -233,6 +236,7 @@ def crawl(
                     url=url,
                     message="Response check raised an exception.",
                     exc_info=exc_info if exc_info[0] is not None else None,
+                    url_name=response_url_name(response),
                 )
             return None
 
@@ -262,7 +266,10 @@ def error_group(errors: Sequence[CrawlError]) -> ExceptionGroup[Exception]:
         if error.exc_info is not None:
             exc = cast(Exception, error.exc_info[1])
             if hasattr(exc, "add_note"):
-                exc.add_note(f"URL: {error.url}")
+                note = f"URL: {error.url}"
+                if error.url_name:
+                    note += f" ({error.url_name})"
+                exc.add_note(note)
                 exceptions.append(exc)
             else:
                 wrapper = ResponseError(f"{error.message}: {error.url}")
@@ -406,4 +413,15 @@ def status_error(url: str, response: Any) -> CrawlError:
         url=url,
         message=f"HTTP {response.status_code} {response.reason_phrase}",
         exc_info=getattr(response, "exc_info", None),
+        url_name=response_url_name(response),
     )
+
+
+def response_url_name(response: Any) -> str | None:
+    resolver_match = getattr(response, "resolver_match", None)
+    if resolver_match is None:
+        return None
+    try:
+        return cast("str | None", resolver_match.url_name)
+    except Resolver404:
+        return None

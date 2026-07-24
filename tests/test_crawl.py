@@ -43,7 +43,7 @@ class CrawlCommandTests(TestCase):
             "🐛 Crawling up to 1000 URLs",
             "URL: /bad/",
             "HTTP 400 Bad Request",
-            "URL: /not-found/",
+            "URL: /not-found/ (not-found)",
             "HTTP 404 Not Found",
         ]
         # Traceback in missed lines (length depends on environment)
@@ -468,7 +468,7 @@ class CrawlCommandTests(TestCase):
             "🐛 Crawling up to 1000 URLs",
             "URL: /bad/",
             "HTTP 400 Bad Request",
-            "URL: /not-found/",
+            "URL: /not-found/ (not-found)",
             "HTTP 404 Not Found",
         ]
         # lines[5:-4] is a rendered traceback, whose length is environment
@@ -756,8 +756,22 @@ class OutputTests(TestCase):
 
         command.report_error(console, crawl.CrawlError("/", "HTTP 404 Not Found"))
 
-        assert "URL: /" in err.getvalue()
-        assert "HTTP 404 Not Found" in err.getvalue()
+        assert err.getvalue().splitlines() == ["URL: /", "HTTP 404 Not Found"]
+
+    def test_report_error_without_traceback_includes_url_name(self):
+        err = StringIO()
+        command = Command()
+        console = Console(file=err, force_terminal=False)
+
+        command.report_error(
+            console,
+            crawl.CrawlError("/not-found/", "HTTP 404 Not Found", url_name="not-found"),
+        )
+
+        assert err.getvalue().splitlines() == [
+            "URL: /not-found/ (not-found)",
+            "HTTP 404 Not Found",
+        ]
 
     def test_report_error_does_not_duplicate_exception_notes(self):
         err = StringIO()
@@ -782,6 +796,30 @@ class OutputTests(TestCase):
             output = err.getvalue()
             assert output.count("URL: /bad/") == 2
             assert output.count("HTTP 500 Internal Server Error") == 2
+
+    def test_report_error_with_traceback_includes_url_name(self):
+        err = StringIO()
+        command = Command()
+        console = Console(file=err, force_terminal=False)
+        exception = ValueError("bad")
+        error = crawl.CrawlError(
+            "/server-error/",
+            "HTTP 500 Internal Server Error",
+            (ValueError, exception, exception.__traceback__),
+            url_name="server-error",
+        )
+
+        command.report_error(console, error)
+
+        if sys.version_info >= (3, 11):
+            assert exception.__notes__ == [
+                "URL: /server-error/ (server-error)",
+                "HTTP 500 Internal Server Error",
+            ]
+        else:
+            output = err.getvalue()
+            assert "URL: /server-error/ (server-error)" in output
+            assert "HTTP 500 Internal Server Error" in output
 
 
 class LoginTests(TestCase):
