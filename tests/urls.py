@@ -143,12 +143,12 @@ def streaming(request: HttpRequest) -> StreamingHttpResponse:
 
 urlpatterns = [
     path("", index),
-    path("ok/", ok),
+    path("ok/", ok, name="ok"),
     path("deep/", deep),
     path("query-variants/", query_variants),
     path("bad/", bad),
-    path("not-found/", not_found),
-    path("server-error/", server_error),
+    path("not-found/", not_found, name="not-found"),
+    path("server-error/", server_error, name="server-error"),
     path("redirect/", redirect_view),
     path("redirect-external/", redirect_external),
     path("redirect-no-location/", redirect_no_location),

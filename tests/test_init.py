@@ -64,6 +64,15 @@ class CrawlTests(TestCase):
         assert len(result.errors) == 1
         assert result.errors[0].url == "/bad/"
         assert result.errors[0].message == "HTTP 400 Bad Request"
+        assert result.errors[0].url_name is None
+
+    def test_check_false_returns_errors_with_url_name(self):
+        result = django_crawl.crawl("/not-found/", check=False)
+
+        assert result.count == 1
+        assert len(result.errors) == 1
+        assert result.errors[0].url == "/not-found/"
+        assert result.errors[0].url_name == "not-found"
 
     def test_client_argument(self):
         client = Client(headers={"x-setup": "1"})
@@ -139,7 +148,7 @@ class CrawlTests(TestCase):
         (error,) = excinfo.value.exceptions
         if sys.version_info >= (3, 11):
             assert isinstance(error, ValueError)
-            assert error.__notes__ == ["URL: /ok/"]
+            assert error.__notes__ == ["URL: /ok/ (ok)"]
         else:
             assert isinstance(error, ResponseError)
             assert isinstance(error.__cause__, ValueError)
