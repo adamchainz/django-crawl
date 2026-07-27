@@ -2,6 +2,9 @@
 Changelog
 =========
 
+1.2.0 (2026-07-27)
+------------------
+
 * Add ``--max-errors`` option, and ``max_errors`` argument to ``django_crawl.crawl()``, to stop the crawl after a given number of errors.
 
   `PR #44 <https://github.com/adamchainz/django-crawl/pull/44>`__.
