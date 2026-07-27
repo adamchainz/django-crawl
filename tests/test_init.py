@@ -93,6 +93,31 @@ class CrawlTests(TestCase):
         assert result.count == 1
         assert result.stop_reason == StopReason.MAX_URLS
 
+    def test_max_errors(self):
+        result = django_crawl.crawl("/", max_errors=1, check=False)
+
+        assert len(result.errors) == 1
+        assert result.stop_reason == StopReason.MAX_ERRORS
+
+    def test_max_errors_exception(self):
+        result = django_crawl.crawl(
+            "/server-error/", "/bad/", max_errors=1, check=False
+        )
+
+        assert len(result.errors) == 1
+        assert result.stop_reason == StopReason.MAX_ERRORS
+
+    def test_max_errors_on_response(self):
+        def check(response):
+            raise AssertionError("nope")
+
+        result = django_crawl.crawl(
+            "/ok/", "/plain/", max_errors=1, on_response=check, check=False
+        )
+
+        assert len(result.errors) == 1
+        assert result.stop_reason == StopReason.MAX_ERRORS
+
     def test_max_query_variants(self):
         result = django_crawl.crawl("/query-variants/", max_query_variants=1)
 

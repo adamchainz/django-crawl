@@ -183,6 +183,15 @@ class Command(RichCommand):
             help=f"Maximum number of URLs to request. Defaults to {DEFAULT_MAX_URLS}.",
         )
         parser.add_argument(
+            "--max-errors",
+            type=positive_int,
+            default=None,
+            help=(
+                "Stop crawling after this many errors. "
+                "Defaults to no limit, crawling until the end."
+            ),
+        )
+        parser.add_argument(
             "--max-query-variants",
             type=max_query_variants_type,
             default=DEFAULT_MAX_QUERY_VARIANTS,
@@ -231,6 +240,7 @@ class Command(RichCommand):
     def handle(self, *args: Any, **options: Any) -> None:
         depth: int = options["depth"]
         max_urls: int = options["max_urls"]
+        max_errors: int | None = options["max_errors"]
         max_query_variants: int | None = options["max_query_variants"]
         code: str | None = options["code"]
         exclude: list[re.Pattern[str]] = options["exclude"]
@@ -274,7 +284,8 @@ class Command(RichCommand):
                 max_urls,
                 max_query_variants,
                 code,
-                allowed_hosts,
+                max_errors=max_errors,
+                allowed_hosts=allowed_hosts,
                 verbosity=verbosity,
                 status=status,
                 code_namespace=namespace,
@@ -283,6 +294,8 @@ class Command(RichCommand):
             )
 
         match result.stop_reason:
+            case StopReason.MAX_ERRORS:
+                reason = f"reaching max error limit of {max_errors}"
             case StopReason.MAX_URLS:
                 reason = f"reaching max URL limit of {max_urls}"
             case StopReason.NO_MORE_LINKS:
@@ -391,6 +404,7 @@ class Command(RichCommand):
         max_urls: int,
         max_query_variants: int | None,
         code: str | None,
+        max_errors: int | None = None,
         allowed_hosts: tuple[str, ...] = (),
         verbosity: int = 1,
         status: Any = None,
@@ -428,6 +442,7 @@ class Command(RichCommand):
             depth=depth,
             max_urls=max_urls,
             max_query_variants=max_query_variants,
+            max_errors=max_errors,
             allowed_hosts=allowed_hosts,
             client_host=client_host,
             exclude=exclude,
