@@ -603,6 +603,18 @@ class CrawlCommandTests(TestCase):
             "stopped due to reaching max URL limit of 1."
         )
 
+    def test_stops_at_max_errors_limit(self):
+        out, _err, returncode = run_command(
+            "crawl", "/", "--depth", "5", "--max-errors", "1"
+        )
+
+        assert returncode == 1
+        lines = out.splitlines()
+        assert lines[-1] == (
+            "🦋 Crawled 3 URLs, encountered 1 error, "
+            "stopped due to reaching max error limit of 1."
+        )
+
 
 class URLTests(TestCase):
     def test_normalize_url_accepts_relative_urls(self):

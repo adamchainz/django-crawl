@@ -60,8 +60,9 @@ class CrawlError:
 
 
 class StopReason(Enum):
-    NO_MORE_LINKS = "no_more_links"
+    MAX_ERRORS = "max_errors"
     MAX_URLS = "max_urls"
+    NO_MORE_LINKS = "no_more_links"
 
 
 class CrawlResult:
@@ -201,6 +202,7 @@ def crawl(
     client: Client | None = None,
     depth: int = DEFAULT_DEPTH,
     max_urls: int = DEFAULT_MAX_URLS,
+    max_errors: int | None = None,
     max_query_variants: int | None = DEFAULT_MAX_QUERY_VARIANTS,
     exclude: Sequence[str | re.Pattern[str]] = (),
     on_response: Callable[[Any], object] | None = None,
@@ -248,6 +250,7 @@ def crawl(
             urls,
             depth=depth,
             max_urls=max_urls,
+            max_errors=max_errors,
             max_query_variants=max_query_variants,
             allowed_hosts=allowed_hosts,
             client_host=client_host,
@@ -289,6 +292,7 @@ def crawl_urls(
     *,
     depth: int,
     max_urls: int,
+    max_errors: int | None = None,
     max_query_variants: int | None,
     allowed_hosts: tuple[str, ...] = (),
     client_host: str | None = None,
@@ -302,10 +306,12 @@ def crawl_urls(
     query_variants: dict[str, set[str]] = {}
     errors: list[CrawlError] = []
 
-    def record(error: CrawlError) -> None:
+    def record(error: CrawlError) -> bool:
+        """Record an error, returning whether the error limit is reached."""
         errors.append(error)
         if on_error is not None:
             on_error(error)
+        return max_errors is not None and len(errors) >= max_errors
 
     stop_reason = StopReason.NO_MORE_LINKS
     while queue:
@@ -332,13 +338,15 @@ def crawl_urls(
             response = client.get(path, headers=headers)
         except Exception:
             _exc = sys.exc_info()
-            record(
+            if record(
                 CrawlError(
                     url=item.url,
                     message="HTTP 500 Internal Server Error",
                     exc_info=_exc if _exc[0] is not None else None,
                 )
-            )
+            ):
+                stop_reason = StopReason.MAX_ERRORS
+                break
             continue
 
         if response.status_code in (301, 302, 303, 307, 308):
@@ -354,22 +362,23 @@ def crawl_urls(
                 ):
                     queue.append(QueueItem(linked_url, item.depth))
             continue
+        limit_reached = False
         if response.status_code >= 400:
-            record(status_error(item.url, response))
+            limit_reached = record(status_error(item.url, response))
 
         # Extract links before running response hooks, which may consume
         # a streaming response's body.
         links: list[str] = []
-        if item.depth < depth:
+        if not limit_reached and item.depth < depth:
             if is_html(response):
                 links = extract_html_links(response)
             elif is_xml(response):
                 links = extract_xml_links(response)
 
-        if on_response is not None:
+        if not limit_reached and on_response is not None:
             response_error = on_response(response, item.url)
             if response_error is not None:
-                record(response_error)
+                limit_reached = record(response_error)
 
         for href in links:
             linked_url = normalize_url(
@@ -387,6 +396,10 @@ def crawl_urls(
         # files, which otherwise hold their files open.
         if response.streaming and not response.closed:
             response.close()
+
+        if limit_reached:
+            stop_reason = StopReason.MAX_ERRORS
+            break
 
     return CrawlResult(count=len(seen), errors=errors, stop_reason=stop_reason)
 

@@ -18,7 +18,7 @@ Minimal usage looks like:
 
 .. currentmodule:: django_crawl
 
-.. function:: crawl(*start_urls, client=None, depth=5, max_urls=1000, max_query_variants=10, exclude=(), on_response=None, check=True)
+.. function:: crawl(*start_urls, client=None, depth=5, max_urls=1000, max_query_variants=10, max_errors=None, exclude=(), on_response=None, check=True)
 
    Crawl the site in-process and return a |CrawlResult|__, like the :doc:`crawl management command <cli>`.
 
@@ -44,6 +44,9 @@ Minimal usage looks like:
 
    :param max_query_variants:
        Maximum number of query string variants to crawl per path, or ``None`` for unlimited.
+
+   :param max_errors:
+       Stop crawling after this many errors, or ``None`` (the default) to crawl until the end.
 
    :param exclude:
        Regular expressions, as strings or compiled patterns.
@@ -131,4 +134,4 @@ With ``check=False``, ``crawl()`` returns a ``CrawlResult`` without raising:
 
 * ``errors``: a list of ``CrawlError`` instances, each with ``url``, ``message``, and ``exc_info`` attributes.
 
-* ``stop_reason``: a ``django_crawl.StopReason`` enum value, ``NO_MORE_LINKS`` or ``MAX_URLS``.
+* ``stop_reason``: a ``django_crawl.StopReason`` enum value: ``MAX_ERRORS``, ``MAX_URLS``, or ``NO_MORE_LINKS``.

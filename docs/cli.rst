@@ -38,6 +38,13 @@ Use ``--max-urls`` to change the overall URL limit:
 
     $ ./manage.py crawl --max-urls 500
 
+By default, the crawl continues to the end, reporting all errors.
+Use ``--max-errors`` to stop after a given number of errors (exceptions or responses with status code 400 or above):
+
+.. code-block:: console
+
+    $ ./manage.py crawl --max-errors 1
+
 By default, django-crawl crawls up to 10 query string variants per path.
 This avoids it getting stuck in large spaces of sorting and filtering links, such as Django admin changelists.
 Use ``--max-query-variants`` to change this limit, or ``unlimited`` to disable it:
@@ -73,7 +80,7 @@ Crawl your sitemap to check that every page it lists renders:
 The command follows redirects.
 Each response counts towards the ``--max-urls`` limit, including each redirect hop.
 It reports HTTP 400, 404, 500, and other 4xx/5xx responses, including Django exception tracebacks when available.
-It keeps crawling after errors and exits non-zero after reporting them all.
+It keeps crawling after errors, unless ``--max-errors`` is reached, and exits non-zero after reporting them all.
 
 Authentication
 --------------

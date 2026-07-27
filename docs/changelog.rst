@@ -2,6 +2,11 @@
 Changelog
 =========
 
+* Add ``--max-errors`` option, and ``max_errors`` argument to ``django_crawl.crawl()``, to stop the crawl after a given number of errors.
+
+  `PR #44 <https://github.com/adamchainz/django-crawl/pull/44>`__.
+  Thanks to Sébastien Corbin for the suggestion in `Issue #43 <https://github.com/adamchainz/django-crawl/issues/43>`__.
+
 * Report Django URL name, if any, after URL path on errors.
 
   `PR #41 <https://github.com/adamchainz/django-crawl/pull/41>`__.
