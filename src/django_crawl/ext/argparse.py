@@ -24,7 +24,7 @@ def positive_int(value: str) -> int:
     return number
 
 
-def max_query_variants(value: str) -> int | None:
+def positive_int_or_unlimited(value: str) -> int | None:
     if value == "unlimited":
         return None
     return positive_int(value)
