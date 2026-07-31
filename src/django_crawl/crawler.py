@@ -201,7 +201,7 @@ def crawl(
     *start_urls: str,
     client: Client | None = None,
     depth: int = DEFAULT_DEPTH,
-    max_urls: int = DEFAULT_MAX_URLS,
+    max_urls: int | None = DEFAULT_MAX_URLS,
     max_errors: int | None = None,
     max_query_variants: int | None = DEFAULT_MAX_QUERY_VARIANTS,
     exclude: Sequence[str | re.Pattern[str]] = (),
@@ -291,7 +291,7 @@ def crawl_urls(
     start_urls: Sequence[str],
     *,
     depth: int,
-    max_urls: int,
+    max_urls: int | None,
     max_errors: int | None = None,
     max_query_variants: int | None,
     allowed_hosts: tuple[str, ...] = (),
@@ -320,7 +320,7 @@ def crawl_urls(
             continue
         if not allow_query_variant(item.url, query_variants, max_query_variants):
             continue
-        if len(seen) >= max_urls:
+        if max_urls is not None and len(seen) >= max_urls:
             stop_reason = StopReason.MAX_URLS
             break
         seen.add(item.url)
