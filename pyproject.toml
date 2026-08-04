@@ -56,7 +56,6 @@ test = [
 docs = [
   "furo>=2024.8.6",
   "sphinx>=7.4.7",
-  "sphinx-build-compatibility",
   "sphinx-copybutton>=0.5.2",
 ]
 django51 = [ "django>=5.1a1,<5.2; python_version>='3.10'" ]
@@ -73,7 +72,6 @@ include = [
 strip = true
 
 [tool.uv]
-sources.sphinx-build-compatibility = { git = "https://github.com/readthedocs/sphinx-build-compatibility", rev = "4f304bd4562cdc96316f4fec82b264ca379d23e0" }
 conflicts = [
   [
     { group = "django51" },
