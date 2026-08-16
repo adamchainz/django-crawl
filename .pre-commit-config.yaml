@@ -64,7 +64,7 @@ repos:
   - id: mypy
     additional_dependencies:
     - django-rich==2.2.0
-    - django-stubs==6.0.5
+    - django-stubs==6.1.0
     - unittest-parametrize==1.8.0
 - repo: local
   hooks:
