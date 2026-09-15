@@ -46,9 +46,10 @@ from django_crawl.crawler import normalize_start_urls as normalize_start_urls
 from django_crawl.crawler import normalize_url as normalize_url
 from django_crawl.crawler import pluralize as pluralize
 from django_crawl.ext.argparse import (
-    max_query_variants as max_query_variants_type,
+    non_negative_int,
+    positive_int,
+    positive_int_or_unlimited,
 )
-from django_crawl.ext.argparse import non_negative_int, positive_int
 from django_crawl.ext.argparse import regex as regex_type
 
 if sys.version_info >= (3, 11):
@@ -178,9 +179,9 @@ class Command(RichCommand):
         )
         parser.add_argument(
             "--max-urls",
-            type=positive_int,
+            type=positive_int_or_unlimited,
             default=DEFAULT_MAX_URLS,
-            help=f"Maximum number of URLs to request. Defaults to {DEFAULT_MAX_URLS}.",
+            help=f"Maximum number of URLs to request. Defaults to {DEFAULT_MAX_URLS}. Use 'unlimited' to disable.",
         )
         parser.add_argument(
             "--max-errors",
@@ -193,7 +194,7 @@ class Command(RichCommand):
         )
         parser.add_argument(
             "--max-query-variants",
-            type=max_query_variants_type,
+            type=positive_int_or_unlimited,
             default=DEFAULT_MAX_QUERY_VARIANTS,
             help=(
                 "Maximum number of query string variants to crawl per path. "
@@ -239,7 +240,7 @@ class Command(RichCommand):
 
     def handle(self, *args: Any, **options: Any) -> None:
         depth: int = options["depth"]
-        max_urls: int = options["max_urls"]
+        max_urls: int | None = options["max_urls"]
         max_errors: int | None = options["max_errors"]
         max_query_variants: int | None = options["max_query_variants"]
         code: str | None = options["code"]
@@ -258,7 +259,9 @@ class Command(RichCommand):
         )
         start_urls = self.start_urls(options["urls"], allowed_hosts, http_host)
 
-        start_message = f"🐛 Crawling up to {pluralize(max_urls, 'URL', 'URLs')}"
+        start_message = "🐛 Crawling"
+        if max_urls is not None:
+            start_message += f" up to {pluralize(max_urls, 'URL', 'URLs')}"
         if user is not None:
             start_message += f", logged in as {user}"
         self.console.print(start_message, soft_wrap=True)
@@ -401,7 +404,7 @@ class Command(RichCommand):
         client: Client,
         start_urls: list[str],
         depth: int,
-        max_urls: int,
+        max_urls: int | None,
         max_query_variants: int | None,
         code: str | None,
         max_errors: int | None = None,

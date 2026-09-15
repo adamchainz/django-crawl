@@ -40,7 +40,7 @@ Minimal usage looks like:
        ``0`` means crawl only the start URLs without following links.
 
    :param max_urls:
-       Maximum number of URLs to request.
+       Maximum number of URLs to request, or ``None`` for unlimited.
 
    :param max_query_variants:
        Maximum number of query string variants to crawl per path, or ``None`` for unlimited.
