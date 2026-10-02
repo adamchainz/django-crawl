@@ -1,16 +1,12 @@
 from __future__ import annotations
 
 import re
-import sys
 
 import pytest
 from django.test import Client, TestCase
 
 import django_crawl
 from django_crawl import CrawlResult, ResponseError, StopReason
-
-if sys.version_info < (3, 11):
-    from exceptiongroup import ExceptionGroup
 
 
 class CrawlTests(TestCase):
@@ -42,14 +38,9 @@ class CrawlTests(TestCase):
         assert str(bad) == "HTTP 400 Bad Request: /bad/"
         assert isinstance(not_found, ResponseError)
         assert str(not_found) == "HTTP 404 Not Found: /not-found/"
-        if sys.version_info >= (3, 11):
-            assert isinstance(server_error, ValueError)
-            assert str(server_error) == "broken"
-            assert server_error.__notes__ == ["URL: /server-error/"]
-        else:
-            assert isinstance(server_error, ResponseError)
-            assert str(server_error) == "HTTP 500 Internal Server Error: /server-error/"
-            assert isinstance(server_error.__cause__, ValueError)
+        assert isinstance(server_error, ValueError)
+        assert str(server_error) == "broken"
+        assert server_error.__notes__ == ["URL: /server-error/"]
 
     def test_check_single_error(self):
         with pytest.raises(ExceptionGroup) as excinfo:
@@ -171,12 +162,8 @@ class CrawlTests(TestCase):
             django_crawl.crawl("/ok/", depth=0, on_response=check_response)
 
         (error,) = excinfo.value.exceptions
-        if sys.version_info >= (3, 11):
-            assert isinstance(error, ValueError)
-            assert error.__notes__ == ["URL: /ok/ (ok)"]
-        else:
-            assert isinstance(error, ResponseError)
-            assert isinstance(error.__cause__, ValueError)
+        assert isinstance(error, ValueError)
+        assert error.__notes__ == ["URL: /ok/ (ok)"]
 
     def test_invalid_start_url(self):
         with pytest.raises(ValueError) as excinfo:

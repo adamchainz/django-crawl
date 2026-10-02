@@ -36,7 +36,7 @@ class CrawlCommandTests(TestCase):
     def test_crawl_reports_all_status_errors_and_tracebacks(self):
         out, err, returncode = run_command("crawl", "/", "--depth", "1")
 
-        note_prefix = "[NOTE] " if sys.version_info >= (3, 11) else ""
+        note_prefix = "[NOTE] "
         assert returncode == 1
         lines = out.splitlines()
         assert lines[:5] == [
@@ -218,7 +218,7 @@ class CrawlCommandTests(TestCase):
             "^/not-found/",
         )
 
-        note_prefix = "[NOTE] " if sys.version_info >= (3, 11) else ""
+        note_prefix = "[NOTE] "
         assert returncode == 1
         lines = out.splitlines()
         assert lines[:1] == ["🐛 Crawling up to 1000 URLs"]
@@ -324,7 +324,7 @@ class CrawlCommandTests(TestCase):
             "raise ValueError('check failed')",
         )
 
-        note_prefix = "[NOTE] " if sys.version_info >= (3, 11) else ""
+        note_prefix = "[NOTE] "
         assert returncode == 1
         lines = out.splitlines()
         assert lines[:1] == ["🐛 Crawling up to 1000 URLs"]
@@ -462,7 +462,7 @@ class CrawlCommandTests(TestCase):
         # The index page links to https://example.com/external/ — with a
         # wildcard in ALLOWED_HOSTS it must still be treated as external,
         # not crawled as the local path /external/.
-        note_prefix = "[NOTE] " if sys.version_info >= (3, 11) else ""
+        note_prefix = "[NOTE] "
         lines = out.splitlines()
         assert lines[:5] == [
             "🐛 Crawling up to 1000 URLs",
@@ -799,15 +799,10 @@ class OutputTests(TestCase):
         command.report_error(console, error)
         command.report_error(console, error)
 
-        if sys.version_info >= (3, 11):
-            assert exception.__notes__ == [
-                "URL: /bad/",
-                "HTTP 500 Internal Server Error",
-            ]
-        else:
-            output = err.getvalue()
-            assert output.count("URL: /bad/") == 2
-            assert output.count("HTTP 500 Internal Server Error") == 2
+        assert exception.__notes__ == [
+            "URL: /bad/",
+            "HTTP 500 Internal Server Error",
+        ]
 
     def test_report_error_with_traceback_includes_url_name(self):
         err = StringIO()
@@ -823,15 +818,10 @@ class OutputTests(TestCase):
 
         command.report_error(console, error)
 
-        if sys.version_info >= (3, 11):
-            assert exception.__notes__ == [
-                "URL: /server-error/ (server-error)",
-                "HTTP 500 Internal Server Error",
-            ]
-        else:
-            output = err.getvalue()
-            assert "URL: /server-error/ (server-error)" in output
-            assert "HTTP 500 Internal Server Error" in output
+        assert exception.__notes__ == [
+            "URL: /server-error/ (server-error)",
+            "HTTP 500 Internal Server Error",
+        ]
 
 
 class LoginTests(TestCase):
