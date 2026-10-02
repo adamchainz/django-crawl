@@ -15,7 +15,7 @@ license-files = [ "LICENSE" ]
 authors = [
   { name = "Adam Johnson", email = "me@adamj.eu" },
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Framework :: Django :: 5.1",
@@ -26,7 +26,6 @@ classifiers = [
   "Natural Language :: English",
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
@@ -38,7 +37,6 @@ classifiers = [
 dependencies = [
   "django>=5.1",
   "django-rich>=2",
-  "exceptiongroup>=1; python_version<'3.11'",
   "rich>=14.1",
 ]
 urls.Changelog = "https://django-crawl.readthedocs.io/en/latest/changelog.html"
@@ -59,8 +57,8 @@ docs = [
   "sphinx>=7.4.7",
   "sphinx-copybutton>=0.5.2",
 ]
-django51 = [ "django>=5.1a1,<5.2; python_version>='3.10'" ]
-django52 = [ "django>=5.2a1,<6; python_version>='3.10'" ]
+django51 = [ "django>=5.1a1,<5.2" ]
+django52 = [ "django>=5.2a1,<6" ]
 django60 = [ "django>=6a1,<6.1; python_version>='3.12'" ]
 django61 = [ "django>=6.1a1,<6.2; python_version>='3.12'" ]
 

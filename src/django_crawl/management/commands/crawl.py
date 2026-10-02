@@ -15,7 +15,7 @@ from contextlib import (
     redirect_stdout,
 )
 from functools import partial
-from typing import Any
+from typing import Any, assert_never
 
 from django.apps import apps
 from django.conf import settings as settings
@@ -50,14 +50,6 @@ from django_crawl.ext.argparse import (
 )
 from django_crawl.ext.argparse import non_negative_int, positive_int
 from django_crawl.ext.argparse import regex as regex_type
-
-if sys.version_info >= (3, 11):
-    from typing import assert_never
-else:
-
-    def assert_never(value: Any) -> None:  # pragma: no cover
-        raise AssertionError(f"Expected code to be unreachable, but got: {value!r}")
-
 
 auth_installed = partial(apps.is_installed, "django.contrib.auth")
 
@@ -493,11 +485,9 @@ class Command(RichCommand):
 
         type_, value, traceback = error.exc_info
         notes = [url_note, error.message]
-        added_notes = hasattr(value, "add_note")
-        if added_notes:
-            for note in notes:
-                if note not in getattr(value, "__notes__", ()):
-                    value.add_note(note)
+        for note in notes:
+            if note not in getattr(value, "__notes__", ()):
+                value.add_note(note)
         console.print(
             Traceback.from_exception(
                 type_,
@@ -507,6 +497,3 @@ class Command(RichCommand):
                 suppress=["django"],
             )
         )
-        if not added_notes:
-            for note in notes:
-                console.print(note)

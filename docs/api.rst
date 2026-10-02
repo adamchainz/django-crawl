@@ -117,7 +117,6 @@ Results
 
 With ``check=True`` (the default), broken pages raise an |ExceptionGroup|__.
 Each contained exception is the original exception the page raised, with the URL attached as a note, or a ``django_crawl.ResponseError`` for plain HTTP error statuses, like ``HTTP 404 Not Found: /dead-link/``.
-(On Python 3.10, original exceptions are wrapped in ``ResponseError`` with ``__cause__`` set, since exception notes require Python 3.11.)
 
 .. |ExceptionGroup| replace:: ``ExceptionGroup``
 __ https://docs.python.org/3/library/exceptions.html#exception-groups

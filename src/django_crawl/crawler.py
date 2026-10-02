@@ -25,9 +25,6 @@ from django_crawl.ext.html import is_html
 from django_crawl.ext.xml import extract_links as extract_xml_links
 from django_crawl.ext.xml import is_xml
 
-if sys.version_info < (3, 11):
-    from exceptiongroup import ExceptionGroup
-
 DEFAULT_DEPTH = 5
 DEFAULT_MAX_URLS = 1000
 DEFAULT_MAX_QUERY_VARIANTS = 10
@@ -268,16 +265,11 @@ def error_group(errors: Sequence[CrawlError]) -> ExceptionGroup[Exception]:
     for error in errors:
         if error.exc_info is not None:
             exc = cast(Exception, error.exc_info[1])
-            if hasattr(exc, "add_note"):
-                note = f"URL: {error.url}"
-                if error.url_name:
-                    note += f" ({error.url_name})"
-                exc.add_note(note)
-                exceptions.append(exc)
-            else:
-                wrapper = ResponseError(f"{error.message}: {error.url}")
-                wrapper.__cause__ = exc
-                exceptions.append(wrapper)
+            note = f"URL: {error.url}"
+            if error.url_name:
+                note += f" ({error.url_name})"
+            exc.add_note(note)
+            exceptions.append(exc)
         else:
             exceptions.append(ResponseError(f"{error.message}: {error.url}"))
     return ExceptionGroup(
