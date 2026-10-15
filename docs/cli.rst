@@ -37,6 +37,7 @@ Use ``--max-urls`` to change the overall URL limit:
 .. code-block:: console
 
     $ ./manage.py crawl --max-urls 500
+    $ ./manage.py crawl --max-urls unlimited
 
 By default, the crawl continues to the end, reporting all errors.
 Use ``--max-errors`` to stop after a given number of errors (exceptions or responses with status code 400 or above):
